@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "hooks": {
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/kangjune-heo/workspace/highjune/highjune-archiving/.claude/save-session.sh",
+            "statusMessage": "Saving session..."
+          }
+        ]
+      }
+    ]
+  }
+}

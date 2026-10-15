@@ -1,0 +1,55 @@
+{
+  "version": "1.0",
+  "projects": [
+    {
+      "id": "tennis-record-k",
+      "name": "Tennis Record K",
+      "description": "테니스 기록 및 일정 관리 애플리케이션",
+      "local_path": "/Users/kangjune-heo/workspace/highjune/tennis-record-k",
+      "github_url": "https://github.com/Highjune/tennis-record-k.git",
+      "tech_stack": [
+        "Spring Boot 3.4.5",
+        "Kotlin",
+        "JPA",
+        "MySQL"
+      ],
+      "deployment": {
+        "type": "docker",
+        "server": "Ubuntu 홈서버",
+        "containers": [
+          "snt-app",
+          "tennis-mysql",
+          "jenkins-server"
+        ],
+        "domain": "https://snt.o-r.kr",
+        "reverse_proxy": "nginx 1.18 (host)",
+        "deploy_trigger": "GitHub release 브랜치 push → Jenkins pollSCM(2분)",
+        "architecture_doc": "source/projects/tennis-record-k/architecture/home-server-architecture.md"
+      },
+      "required_files": [
+        "CLAUDE.md",
+        "README.md"
+      ],
+      "sub_projects": [
+        {
+          "id": "kakao-vote-automation",
+          "name": "카카오톡 투표 자동화",
+          "description": "매주 토요일 저녁 10시 테니스 투표 자동 생성",
+          "status": "planning",
+          "plan_file": "kakao-vote-automation-plan.md"
+        },
+        {
+          "id": "monitoring",
+          "name": "모니터링 시스템",
+          "description": "로그 수집 및 서버 모니터링 (PLG Stack)",
+          "status": "planning",
+          "docs_path": "source/projects/tennis-record-k/features/monitoring/"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "created_at": "2026-04-16",
+    "updated_at": "2026-10-15"
+  }
+}
