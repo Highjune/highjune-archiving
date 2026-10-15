@@ -226,6 +226,46 @@ Grafana 대시보드에서 14:59에 에러율 그래프가 튐 (메트릭)
   → "RecordService:42 NullPointer" 발견
 ```
 
+#### 개념 정리 (헷갈렸던 것들)
+
+**시계열(time series)** = 한 대상을 시간 순으로 잰 숫자의 줄. "미니PC CPU 사용률"이 시계열 하나, "snt-app 메모리"가 또 하나. 15초마다 점이 붙어 그래프 선 한 줄이 된다.
+
+**라벨(label)** = 시계열이 누구 것인지 구분하는 `키="값"` 꼬리표. 지표 이름이 같아도 라벨이 다르면 다른 시계열이다.
+
+```
+container_memory_bytes{name="snt-app"}         ← 시계열 1
+container_memory_bytes{name="tennis-mysql"}    ← 시계열 2
+http_requests_total{uri="/game/results", status="200"}  ← 시계열 3
+```
+
+MySQL로 비유하면 라벨은 `GROUP BY`에 쓰는 분류 컬럼, 시계열은 그 그룹 하나, 점은 그룹 안의 행 하나 `(time, value)`.
+
+**Prometheus 저장 방식** — CSV가 아니라 자체 바이너리(TSDB). 라벨 조합 → 시계열 ID 역색인을 두고, 각 시계열의 점들은 2시간 청크로 묶어 시각은 차분, 값은 XOR로 압축(점당 약 1.4바이트). `curl :9100/metrics`로 보이는 텍스트는 수집 순간의 전송 포맷일 뿐이다. 보관 기간은 `--storage.tsdb.retention.time=90d`처럼 옵션 하나로 늘린다. 홈서버 규모면 1년도 몇 GB.
+
+**Loki 조회 방식** — 본문은 인덱스하지 않는다. 두 단계로 찾는다.
+
+```
+{container="snt-app", level="ERROR"} |= "NullPointer"
+ └ 1단계: 라벨+시간 인덱스로 청크 위치 찾기 (MySQL 복합 인덱스와 동일)
+                                      └ 2단계: 그 청크를 풀며 한 줄씩 grep (LIKE '%..%'와 동일)
+```
+
+1단계에서 범위를 수천 줄로 줄여놓기 때문에 2단계 풀스캔이 감당된다. 그래서 라벨은 컨테이너명·레벨처럼 **값이 적은 것만** 둔다. `user_id` 같은 고유값을 라벨로 넣으면 시계열 폭발. 회사 로그몬(OpenSearch)은 본문 단어 전체를 역색인해 아무 키워드나 즉시 찾지만 메모리를 수 GB 쓴다. Loki는 그걸 포기하고 가볍게 간 선택.
+
+**Prometheus vs Loki** — 둘 다 "시간 순으로 쌓이는 저장소"이고 동등한 층에 나란히 있다. 담는 게 숫자냐 문장이냐만 다르다.
+
+| | Prometheus | Loki |
+|---|---|---|
+| 내용물 | 숫자 (CPU 37.2, 요청수 512) | 문장 (ERROR NullPointer at ...) |
+| 할 수 있는 것 | 평균·증가율 등 **계산** → 그래프 | 포함 검색 → 원인 추적 |
+| 인덱스 | 지표·라벨 전체 | 라벨·시간만, 본문은 grep |
+| 수집 | 자기가 긁어옴 (pull) | promtail이 밀어넣음 (push) |
+| 질의어 | PromQL | LogQL (라벨 문법 동일) |
+
+**Grafana** — 데이터를 저장하지 않는다. 데이터소스 **플러그인(어댑터)** 구조로, 패널마다 어느 저장소에 어떤 질의어로 물어볼지 조립해 HTTP로 보내고 결과만 그린다. Prometheus·Loki 외에 MySQL·OpenSearch·CloudWatch 등 수십 종을 지원한다. 그래서 한 대시보드에 "Prometheus 그래프 + Loki 로그 + MySQL에서 뽑은 테니스 경기 수"를 같이 둘 수 있다. MySQL을 붙일 땐 읽기 전용 계정으로.
+
+**왜 이 셋을 묶어 쓰나 (PLG 스택)** — Prometheus는 CNCF 독립 프로젝트(2012, SoundCloud 출신). Grafana Labs가 2018년 "Prometheus의 로그판"을 목표로 Loki를 같은 라벨 문법으로 만들었고, 그래서 Grafana 안에서 메트릭 그래프의 라벨을 그대로 들고 로그로 넘어갈 수 있다. 강제 조합은 아니다. Prometheus + Grafana만 쓰거나 로그는 ELK로 가는 곳도 많다(회사는 메트릭 Datadog, 로그 OpenSearch). 홈서버처럼 가볍게 가야 할 때 가장 흔한 세트라서 선택.
+
 #### 도입 순서
 
 1. Prometheus + node-exporter + cAdvisor + Grafana (서버·컨테이너 숫자부터)
