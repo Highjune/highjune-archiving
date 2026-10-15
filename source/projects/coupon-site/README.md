@@ -23,7 +23,10 @@
 ### Phase 0. 서버 정리
 - [ ] 모뎀 포트포워딩에서 `3306`, `8080` 규칙 삭제 (MySQL 공인 노출 차단)
 - [ ] 공유기 고정 IP 설정 (정전 후 포워딩 깨짐 방지)
-- [ ] SSH 키 인증 전환
+- [x] SSH 키 등록 (2026-10-15, `ssh snt`) — `PasswordAuthentication no`는 Tailscale 후
+- [x] Jenkins `JAVA_OPTS=-Xmx1g` (2026-10-15, 4.8GB → 0.44GB)
+- [ ] tennis-mysql compose `ports`를 `127.0.0.1:3306:3306`으로 (호스트 밖 바인딩 차단)
+- [ ] Tailscale 설치 (맥북·미니PC) → 22번 포워딩도 삭제 가능
 
 ### Phase 1. 도메인·정적 사이트 (MVP)
 - [ ] 도메인 구매 + Cloudflare 네임서버 이전
