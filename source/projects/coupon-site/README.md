@@ -12,7 +12,7 @@
 | 파트너 가입 유형 | 개인 (PERSONAL), 실명, 개인 gmail | 사업자등록 없음. 가입 후 유형 변경 불가·수익 발생 후 전환 불가 |
 | 페이지 | **Spring Boot 4.1 + Kotlin + Thymeleaf (SSR)** | 쿠폰을 DB 데이터로 관리(만료 자동 숨김, 월 표기 자동), admin으로 배포 없이 수정, 클릭 로그 1일차부터. 정적(Astro)은 2026-10-15 폐기 |
 | 서빙 | 홈서버 nginx `server_name couponnote.kr` → `proxy_pass 127.0.0.1:8081` (couponnote-api 컨테이너) | 테니스 앱과 동일 패턴 |
-| 레포 | `Highjune/couponnote` (public). 모듈 core/domain/infrastructure/application/api, api만 배포 | mrt3-ad식 멀티모듈 축소판 |
+| 레포 | `Highjune/couponnote` (public). 모듈 core/domain/infrastructure/application/api + dto/client, api만 배포 | mrt3-ad·marketing-partner 와 같은 방향 `api → application → infrastructure → domain → core`. client는 mrt3-payment식 SDK(연습용, 소비자 후보: tennis-record-k) |
 | DB | 기존 `tennis-mysql`에 논리 DB `coupon` + 전용 계정 | 컨테이너 추가 없이 스키마·권한만 분리 |
 | 배포 | GitHub `release` 푸시 → Jenkins → bootJar·테스트 → DockerHub `highjunea37/couponnote-api` → compose up | 테니스 앱과 동일 파이프라인 |
 | 도메인 | **couponnote.kr** (호스팅케이알, 2026-10-15 구매, 14,000원/년, 자동연장). DNS는 Cloudflare로 이전 예정 | `.com`은 2011년부터 타인 보유(미사용). 경쟁자도 대부분 짝 TLD 없음 |
