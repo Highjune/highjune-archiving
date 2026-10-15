@@ -32,15 +32,16 @@
 
 ### Phase 1. 도메인·정적 사이트 (MVP)
 - [x] 도메인 구매 couponnote.kr (2026-10-15)
-- [ ] Cloudflare 네임서버 이전
+- [x] Cloudflare 네임서버 이전 (2026-10-15, athena/nero.ns.cloudflare.com, A → 홈서버 IP, DNS only)
 - [ ] 홈서버 Cloudflare DDNS 갱신 스크립트 (cron 5분)
 - [ ] 마케팅파트너 가입 (개인·실명·gmail, SNS 주소 = coupon 도메인)
 - [ ] 마이링크 발급: 메인, 쿠폰팩 프로모션, 투어 카테고리, 숙소, 항공 (t_scope 7일)
 - [x] Spring 뼈대 (2026-10-15): 엔티티·페이지·/go 리다이렉트·캐시·Dockerfile·Jenkinsfile·schema.sql, 스모크 테스트 4건 통과
-- [ ] tennis-mysql에 `coupon` 스키마·계정 생성 (deploy/schema.sql)
-- [ ] 홈서버 `/home/highjune/services/couponnote/` compose + .env
-- [ ] nginx `couponnote.kr` server 블록 + certbot
-- [ ] Jenkins 잡 couponnote (release 브랜치, Jenkinsfile 그대로)
+- [x] tennis-mysql에 `coupon` 스키마·계정 생성 (2026-10-15)
+- [x] 홈서버 `/home/highjune/services/couponnote/` compose + .env (2026-10-15)
+- [x] nginx `couponnote.kr` server 블록 + certbot (2026-10-15, https 발급 완료)
+- [x] Jenkins 잡 couponnote-pipeline (2026-10-15, HTTPS 익명 clone). release 푸시 → 빌드 #1 SUCCESS
+- [ ] **첫 배포 검증**: 빌드 직후 홈서버 외부 접속 두절 → 집에서 확인 필요 (home-server-architecture.md 7-1)
 - [ ] admin 화면(쿠폰·글 편집, 캐시 무효화) — 그 전까지는 DB 직접 편집
 - [ ] 핵심 글 1: "마이리얼트립 할인코드·쿠폰 총정리 (YYYY년 M월)" — 쿠폰팩 → 카드사 할인표 → 여행지별 쿠폰 → 항공 프로모션 → FAQ
 - [ ] 보조 글: 신규회원 혜택 / 취소·환불 규정 / 클룩·KKday 비교 / 항공권 카드할인
