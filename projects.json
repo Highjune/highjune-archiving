@@ -51,22 +51,32 @@
       "id": "coupon-site",
       "name": "쿠폰 어필리에이트 사이트",
       "description": "마이리얼트립 할인코드 가이드 정적 사이트 + 마이링크 CPS (couponpin 벤치마크)",
-      "local_path": null,
-      "github_url": null,
+      "local_path": "/Users/kangjune-heo/workspace/highjune/couponnote",
+      "github_url": "https://github.com/Highjune/couponnote.git",
       "status": "planning",
       "tech_stack": [
-        "Astro",
+        "Spring Boot 4.1",
+        "Kotlin 2.3",
+        "JPA",
+        "Thymeleaf",
+        "Caffeine",
+        "MySQL(coupon 스키마)",
         "nginx",
-        "Jenkins",
-        "MySQL(coupon 논리 DB)",
-        "Spring/Kotlin API(예정)"
+        "Jenkins"
       ],
       "deployment": {
-        "type": "static+docker",
+        "type": "docker",
         "server": "Ubuntu 홈서버",
-        "reverse_proxy": "nginx (coupon.<도메인>)"
+        "container": "couponnote-api :8081",
+        "reverse_proxy": "nginx (couponnote.kr)",
+        "deploy_trigger": "GitHub release 브랜치 push → Jenkins pollSCM(2분)"
       },
-      "docs_path": "source/projects/coupon-site/"
+      "docs_path": "source/projects/coupon-site/",
+      "domain": "https://couponnote.kr",
+      "required_files": [
+        "CLAUDE.md",
+        "README.md"
+      ]
     }
   ],
   "metadata": {
