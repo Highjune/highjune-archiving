@@ -46,6 +46,27 @@
           "docs_path": "source/projects/tennis-record-k/features/monitoring/"
         }
       ]
+    },
+    {
+      "id": "coupon-site",
+      "name": "쿠폰 어필리에이트 사이트",
+      "description": "마이리얼트립 할인코드 가이드 정적 사이트 + 마이링크 CPS (couponpin 벤치마크)",
+      "local_path": null,
+      "github_url": null,
+      "status": "planning",
+      "tech_stack": [
+        "Astro",
+        "nginx",
+        "Jenkins",
+        "MySQL(coupon 논리 DB)",
+        "Spring/Kotlin API(예정)"
+      ],
+      "deployment": {
+        "type": "static+docker",
+        "server": "Ubuntu 홈서버",
+        "reverse_proxy": "nginx (coupon.<도메인>)"
+      },
+      "docs_path": "source/projects/coupon-site/"
     }
   ],
   "metadata": {

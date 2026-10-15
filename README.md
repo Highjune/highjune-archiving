@@ -21,6 +21,7 @@
 - `kakao-vote-automation-plan.md` - 카카오톡 투표 자동화 계획서
 - `CLAUDE.md` - 프로젝트 가이드 및 규칙
 - `source/projects/tennis-record-k/architecture/home-server-architecture.md` - 홈서버 아키텍처 상세 (포트 실측, 배포 파이프라인, 리스크)
+- `source/projects/coupon-site/README.md` - 쿠폰 어필리에이트 사이트 기획·TODO
 
 ## 홈서버 아키텍처 (2026-10-15 기준)
 
