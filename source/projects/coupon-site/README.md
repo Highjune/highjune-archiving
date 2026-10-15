@@ -49,6 +49,7 @@
 ### Phase 3. 운영
 - [ ] 구글 검색광고 소액 테스트 (글이 자리 잡은 뒤 1~2개월 후)
 - [ ] 모니터링 스택(Prometheus/Loki/Grafana)에 coupon API·nginx 로그 포함
+- [ ] snt-app·coupon-api 로그를 JSON 구조화 포맷으로 통일 (`logging.structured.format.console=ecs`, Spring Boot 3.4+) → promtail `json` 스테이지로 `level` 라벨 추출. 스택트레이스 한 줄화
 
 ## 참고
 - 수수료율 실측(파트너 131094, 2026-06~10): 투어 5~6%, 숙소 2%, 기차패스 2%, 항공 0.5% → 글의 추천 동선은 투어 중심

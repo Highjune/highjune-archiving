@@ -270,7 +270,7 @@ MySQL로 비유하면 라벨은 `GROUP BY`에 쓰는 분류 컬럼, 시계열은
 
 1. Prometheus + node-exporter + cAdvisor + Grafana (서버·컨테이너 숫자부터)
 2. snt-app에 actuator 의존성 추가 → Prometheus 스크랩 대상 추가 (앱 내부 지표)
-3. Loki + promtail (로그)
+3. Loki + promtail (로그). 이때 Spring 앱은 JSON 구조화 로그(`logging.structured.format.console=ecs`)로 통일해 promtail이 `level`을 라벨로 뽑게 한다. nginx·MySQL은 자체 포맷이라 `regex` 스테이지로 별도 파싱
 4. Grafana 알림: 메모리 90%·디스크 85%·앱 다운 시 슬랙/메일
 
 ### 메모리 예산 (16GB)
