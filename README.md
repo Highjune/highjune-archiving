@@ -147,6 +147,92 @@ flowchart TB
 | 443 | nginx | 모든 서비스의 유일한 입구 |
 | 3306, 8080, 8090, 8081, 18080, 9090, 3000 | **닫음** | 내부망·nginx 뒤에서만 |
 
+### 모니터링 상세 (메트릭 · 로그 두 파이프라인)
+
+모니터링 구성요소는 전부 **독립 오픈소스 프로그램**이고 각각 Docker 컨테이너 하나로 뜬다. Spring 앱이 직접 하는 건 `/actuator/prometheus` 엔드포인트를 여는 것뿐이다.
+
+| 구성 | 종류 | 역할 | 포트 |
+|---|---|---|---|
+| node-exporter | Go 바이너리 (Prometheus 프로젝트) | 호스트 OS의 CPU·메모리·디스크·네트워크를 숫자로 노출 | 9100 |
+| cAdvisor | Go 바이너리 (Google) | docker.sock을 읽어 **컨테이너별** CPU·메모리·IO를 숫자로 노출 | 8085 |
+| Spring Actuator | 앱 내장 라이브러리 (`spring-boot-starter-actuator` + `micrometer-registry-prometheus`) | 앱 내부 지표(요청 수·응답시간·JVM 힙·DB 커넥션 풀)를 `/actuator/prometheus`로 노출 | 앱 포트 |
+| **Prometheus** | 시계열 DB + 수집기 | 위 3곳을 15초마다 HTTP로 긁어(pull) 저장. PromQL로 질의. 알림 규칙 평가 | 9090 |
+| promtail | Loki 에이전트 | `/var/lib/docker/containers/*/*.log`를 tail해서 라벨(컨테이너명) 붙여 Loki로 push | 9080 |
+| **Loki** | 로그 저장소 (Grafana Labs) | 로그 본문을 압축 저장, 라벨 인덱스로 검색. "Prometheus의 로그판" | 3100 |
+| **Grafana** | 시각화·알림 UI | Prometheus·Loki를 데이터소스로 등록해 대시보드·그래프·알림 | 3000 |
+
+#### 메트릭 파이프라인 (pull 방식)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant NE as node-exporter :9100
+    participant CA as cAdvisor :8085
+    participant APP as snt-app /actuator/prometheus
+    participant PR as Prometheus :9090
+    participant GF as Grafana :3000
+    participant ME as 나 (브라우저)
+
+    Note over NE,APP: 각자 자기 숫자를 HTTP 텍스트로 "노출"만 하고 있음
+    loop 15초마다
+        PR->>NE: GET /metrics
+        NE-->>PR: cpu_seconds_total 1234 / mem_available 11e9 ...
+        PR->>CA: GET /metrics
+        CA-->>PR: container_memory_usage{name="snt-app"} 4.2e8 ...
+        PR->>APP: GET /actuator/prometheus
+        APP-->>PR: http_server_requests_seconds_count{uri="/game/results"} 512 ...
+        PR->>PR: 시계열로 저장 (15일 보관)
+    end
+    ME->>GF: grafana.〈도메인〉 대시보드 열기
+    GF->>PR: PromQL: rate(http_server_requests_seconds_count[5m])
+    PR-->>GF: 시계열 결과
+    GF-->>ME: 그래프
+```
+
+핵심: **Prometheus가 능동적으로 긁어간다(pull).** exporter들은 수동적으로 "현재값"만 보여주는 웹페이지다. `curl localhost:9100/metrics` 하면 사람이 읽을 수 있는 텍스트가 그대로 나온다.
+
+#### 로그 파이프라인 (push 방식)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant APP as snt-app (컨테이너)
+    participant DK as Docker 데몬
+    participant PT as promtail
+    participant LK as Loki :3100
+    participant GF as Grafana
+    participant ME as 나
+
+    APP->>DK: stdout에 "ERROR NullPointer..." 출력
+    DK->>DK: /var/lib/docker/containers/〈id〉/〈id〉-json.log 에 append
+    PT->>DK: 그 파일을 tail (마운트로 읽음)
+    PT->>PT: 라벨 부여 {container="snt-app", level="ERROR"}
+    PT->>LK: POST /loki/api/v1/push (배치 전송)
+    LK->>LK: 라벨 인덱스 + 본문 압축 저장
+    ME->>GF: Explore 탭에서 {container="snt-app"} |= "ERROR"
+    GF->>LK: LogQL 질의
+    LK-->>GF: 매칭 로그 라인
+    GF-->>ME: 시간순 로그 목록
+```
+
+핵심: **로그는 앱이 stdout에 쓰면 끝.** 앱은 Loki를 모른다. Docker가 파일로 받아두고 promtail이 그걸 읽어 밀어넣는다(push). 그래서 어떤 언어·프레임워크든 로그 수집 코드 변경이 없다.
+
+#### 둘을 합쳐 쓰는 순간
+
+```
+Grafana 대시보드에서 14:59에 에러율 그래프가 튐 (메트릭)
+  → 같은 화면에서 그 시각 로그 패널 클릭 (로그)
+  → {container="snt-app"} |= "ERROR" 14:58~15:00
+  → "RecordService:42 NullPointer" 발견
+```
+
+#### 도입 순서
+
+1. Prometheus + node-exporter + cAdvisor + Grafana (서버·컨테이너 숫자부터)
+2. snt-app에 actuator 의존성 추가 → Prometheus 스크랩 대상 추가 (앱 내부 지표)
+3. Loki + promtail (로그)
+4. Grafana 알림: 메모리 90%·디스크 85%·앱 다운 시 슬랙/메일
+
 ### 메모리 예산 (16GB)
 
 | 구성 | 예상 |
