@@ -40,7 +40,7 @@ flowchart LR
 
     subgraph NGINX["nginx"]
         S80["server { listen 80 }<br/>host == snt.o-r.kr → 301 https<br/>그 외 → 404"]
-        S443["server { listen 443 ssl }<br/>server_name snt.o-r.kr localhost 192.168.75.66"]
+        S443["server { listen 443 ssl }<br/>server_name snt.o-r.kr localhost"]
         ACME["location /.well-known/acme-challenge/<br/>root /var/www/html<br/>(certbot 도메인 검증용)"]
         ROOT["location /<br/>proxy_pass http://localhost:8090<br/>Host·X-Real-IP·X-Forwarded-For 헤더 전달<br/>WebSocket Upgrade 헤더"]
         S443 --> ACME
@@ -63,7 +63,7 @@ flowchart LR
 | `Upgrade` / `Connection "upgrade"` | WebSocket 통과 허용 |
 | `# managed by Certbot` | certbot이 `--nginx` 플러그인으로 자동 삽입한 줄. 손으로 고치면 갱신 때 꼬일 수 있음 |
 
-**정리 대상**: `server_name`의 `192.168.75.66`은 옛 공유기 WAN IP. 지금은 `192.168.75.231`이라 의미 없음. 내부망에서 IP로 접속할 일 없으면 삭제.
+**정리 완료(2026-10-15)**: `server_name`에 있던 옛 공유기 WAN IP `192.168.75.66` 제거. 현재 `server_name snt.o-r.kr localhost;`.
 
 ## 3. 로그
 

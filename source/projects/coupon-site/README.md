@@ -25,7 +25,8 @@
 - [ ] 공유기 고정 IP 설정 (정전 후 포워딩 깨짐 방지)
 - [x] SSH 키 등록 (2026-10-15, `ssh snt`) — `PasswordAuthentication no`는 Tailscale 후
 - [x] Jenkins `JAVA_OPTS=-Xmx1g` (2026-10-15, 4.8GB → 0.44GB)
-- [ ] tennis-mysql compose `ports`를 `127.0.0.1:3306:3306`으로 (호스트 밖 바인딩 차단)
+- [x] tennis-mysql compose `ports`를 `127.0.0.1:3306:3306`으로 (2026-10-15, 외부 closed 확인)
+- [x] nginx `server_name` 옛 IP 제거, sudo NOPASSWD (2026-10-15)
 - [ ] Tailscale 설치 (맥북·미니PC) → 22번 포워딩도 삭제 가능
 
 ### Phase 1. 도메인·정적 사이트 (MVP)

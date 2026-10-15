@@ -46,7 +46,7 @@ flowchart TB
 | 22 | 열림 | sshd (비밀번호 인증) | 외부 SSH 가능 |
 | 80 | 열림 | nginx → `301 https://snt.o-r.kr/` | |
 | 443 | 열림 | nginx → snt-app :8090 | `Server: nginx/1.18.0 (Ubuntu)` |
-| 3306 | **열림** | tennis-mysql | 공인 IP로 MySQL 직접 접속 가능. 닫아야 함 |
+| 3306 | 닫힘 (2026-10-15) | tennis-mysql | 바인딩을 `127.0.0.1`로 바꿔 외부 차단. 모뎀 포워딩 규칙은 아직 남아 있으나 무효 |
 | 8080 | 닫힘 | (없음) | 앱이 8090으로 바뀌어 죽은 포워딩 규칙 |
 | 8090 | 닫힘 | snt-app | nginx 뒤에서만 접근 (정상) |
 | 18080 | 닫힘 | jenkins-server | 내부망에서만 접근 (정상) |
@@ -92,9 +92,10 @@ sequenceDiagram
 |---|---|
 | `/home/highjune/services/snt-record/docker-compose.yml` | mysql_db + app 정의 (비밀번호 포함) |
 | `/home/highjune/services/jenkins/` | Dockerfile, docker-compose.yml, run_docker_compose.sh |
-| `/etc/nginx/sites-enabled/snt.o-r.kr` | server 블록 1개. 443: `proxy_pass http://localhost:8090` + WebSocket 헤더. 80: `301 → https`. 인증서는 certbot 관리(`/etc/letsencrypt/live/snt.o-r.kr/`), `certbot.timer`로 매일 자동 갱신 확인됨 (2026-10-15 실측). `server_name`에 옛 WAN IP `192.168.75.66`이 남아 있음 → 정리 대상 |
+| `/etc/nginx/sites-enabled/snt.o-r.kr` | server 블록 1개. 443: `proxy_pass http://localhost:8090` + WebSocket 헤더. 80: `301 → https`. 인증서는 certbot 관리(`/etc/letsencrypt/live/snt.o-r.kr/`), `certbot.timer`로 매일 자동 갱신 확인됨 (2026-10-15 실측). `server_name`의 옛 WAN IP `192.168.75.66`은 2026-10-15 제거(백업 `.bak-20261015`) |
 | `/home/highjune/services/jenkins/docker-compose.yml` | 2026-10-15 `JAVA_OPTS=-Xmx1g -Xms256m` 추가. 메모리 4.84GB → 0.44GB. 백업 `docker-compose.yml.bak-20261015` |
 | 맥북 `~/.ssh/config` | `Host snt` 별칭 (키 `id_ed25519_highjune`). `ssh snt`로 접속. 비밀번호 인증은 아직 켜져 있음 |
+| `/etc/sudoers.d/highjune` | `NOPASSWD:ALL` (2026-10-15). 원격 자동화용 |
 
 ## 6. 알려진 리스크 / 할 일
 
@@ -102,7 +103,7 @@ sequenceDiagram
 |---|---|---|---|
 | 1 | **3306 공인 IP 노출** | 높음 | 모뎀 포트포워딩에서 `snt-record-db` 규칙 삭제. DB는 SSH 터널로 접속 |
 | 2 | SSH 비밀번호 인증 | 중간 | 키 등록 완료(2026-10-15). `PasswordAuthentication no`는 Tailscale 도입과 함께 |
-| 2-1 | MySQL이 `0.0.0.0:3306`으로 바인딩 | 중간 | 포워딩 삭제와 별개로 compose `ports`를 `127.0.0.1:3306:3306`으로 바꿔 호스트 밖으로 아예 안 열리게 (앱은 docker 네트워크로 붙으므로 영향 없음) |
+| 2-1 | MySQL이 `0.0.0.0:3306`으로 바인딩 | ~~중간~~ | **완료 2026-10-15**: compose `127.0.0.1:3306:3306`. 외부 `nc 3306` closed 확인. 앱은 `mysql_db:3306`(docker 네트워크)라 무영향. 포워딩 규칙은 여전히 삭제 대상 |
 | 3 | 정전 시 공유기 WAN IP 변동 → 포워딩 5개 수동 수정 | 중간 | 공유기에 고정 IP 또는 모뎀 DMZ |
 | 4 | 죽은 포워딩 규칙 8080 | 낮음 | 삭제 |
 | 5 | nginx 설정·인증서 갱신 방식이 문서화 안 됨 | 낮음 | `/etc/nginx` 와 certbot 타이머 확인 후 기록 |
