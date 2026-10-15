@@ -109,3 +109,13 @@ sequenceDiagram
 - 같은 nginx에 `server_name coupon.<도메인>` 블록 추가 → 새 컨테이너(예: :8081)로 proxy_pass
 - 도메인은 별도 구매, DNS는 Cloudflare로 관리 (DDNS 자동 갱신 + 정적 호스팅 동시 활용)
 - 상세는 결정되면 `features/coupon-site/`에 기록
+
+## 8. 목표 아키텍처 (2026-10-15 계획)
+
+README의 "목표 아키텍처" 섹션이 정본. 요지:
+
+- 게이트웨이는 **nginx 하나**. Spring Cloud Gateway 등 별도 게이트웨이 두지 않음
+- 신규: `coupon` 정적 사이트(nginx root), `coupon-api`(:8081, Docker), `tennis-mysql`에 `coupon` 스키마
+- 모니터링: Prometheus + Grafana + Loki/promtail + node-exporter + cAdvisor (Docker, `grafana.<도메인>`으로 nginx 뒤에서 노출)
+- 외부 포트는 22/80/443만. 3306·8080 포워딩 삭제
+- Jenkins executor 1, `-Xmx2g`

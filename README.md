@@ -56,6 +56,108 @@ flowchart LR
 
 배포는 `release` 브랜치 푸시 한 가지 경로. 상세는 위 아키텍처 문서 참고.
 
+## 목표 아키텍처 (2026-10-15 계획)
+
+원칙: **게이트웨이는 nginx 하나**(80/443 선점, 도메인별 분배, TLS 종료). 앱·DB·CI·모니터링은 전부 Docker. 모니터링은 Prometheus + Grafana(+ Loki 로그). 사용자 요청 경로에는 동적 서버를 두지 않는다.
+
+```mermaid
+flowchart TB
+    subgraph NET["인터넷"]
+        U1["사용자<br/>snt.o-r.kr"]
+        U2["사용자·검색봇<br/>coupon.〈도메인〉"]
+        CF["Cloudflare DNS<br/>(DDNS 자동 갱신)"]
+        GH["GitHub<br/>tennis-record-k / coupon-site<br/>release 브랜치"]
+        HUB["DockerHub"]
+    end
+
+    subgraph HOME["집 네트워크 (모뎀 포트포워딩 22·80·443만)"]
+        subgraph PC["미니PC N100 · 16GB · Ubuntu"]
+            subgraph EDGE["게이트웨이 (호스트 프로세스)"]
+                NG["nginx :80/:443<br/>TLS 종료 (certbot)<br/>Host 헤더로 분배"]
+            end
+
+            subgraph APPS["앱 (Docker)"]
+                TA["snt-app<br/>Spring Boot :8090"]
+                CS["coupon 정적 HTML<br/>/services/coupon/dist<br/>(nginx root, 컨테이너 없음)"]
+                CA["coupon-api<br/>Spring/Kotlin :8081<br/>클릭로그·쿠폰수집·구독"]
+            end
+
+            subgraph DATA["데이터 (Docker)"]
+                DB["tennis-mysql :3306<br/>스키마 record / coupon<br/>(내부망만)"]
+            end
+
+            subgraph CI["CI/CD (Docker)"]
+                JK["jenkins :18080<br/>executor 1, -Xmx2g<br/>docker.sock 마운트"]
+            end
+
+            subgraph MON["모니터링 (Docker)"]
+                PR["Prometheus :9090"]
+                GF["Grafana :3000"]
+                LK["Loki :3100"]
+                PT["promtail<br/>(docker 로그 수집)"]
+                NE["node-exporter :9100"]
+                CAD["cAdvisor :8085"]
+            end
+        end
+    end
+
+    U1 -->|https| NG
+    U2 -->|https| NG
+    CF -.->|A 레코드| NG
+    NG -->|"snt.o-r.kr → :8090"| TA
+    NG -->|"coupon.〈도메인〉/ → 파일"| CS
+    NG -->|"coupon.〈도메인〉/api/* → :8081"| CA
+    NG -->|"grafana.〈도메인〉 → :3000 (basic auth)"| GF
+    TA --> DB
+    CA --> DB
+    CS -.->|"클릭 후 sendBeacon"| CA
+
+    JK -->|"pollSCM 2분"| GH
+    JK -->|"push/pull 이미지"| HUB
+    JK -->|"compose up"| TA
+    JK -->|"compose up"| CA
+    JK -->|"npm build → dist 교체"| CS
+
+    PR --> NE
+    PR --> CAD
+    PR -->|"/actuator/prometheus"| TA
+    PR -->|"/actuator/prometheus"| CA
+    PT -->|docker 로그| LK
+    GF --> PR
+    GF --> LK
+```
+
+### 요청·배포·관측 경로
+
+| 경로 | 흐름 |
+|---|---|
+| 테니스 | 브라우저 → nginx(443) → snt-app:8090 → tennis-mysql(record) |
+| 쿠폰 페이지 | 브라우저·검색봇 → nginx(443) → 정적 파일 그대로 응답. DB·JVM 안 거침 |
+| 쿠폰 동적 | 버튼 클릭 후 `/api/click` → nginx → coupon-api:8081 → tennis-mysql(coupon). 렌더와 무관 |
+| 배포 | `git push origin release` → Jenkins 2분 폴링 → 빌드 → (앱) DockerHub push·compose up / (정적) dist 폴더 교체 |
+| 메트릭 | node-exporter·cAdvisor·앱 actuator → Prometheus 스크랩 → Grafana 대시보드 |
+| 로그 | 컨테이너 stdout → promtail → Loki → Grafana Explore |
+
+### 외부 노출 포트 (목표)
+
+| 포트 | 대상 | 비고 |
+|---|---|---|
+| 22 | SSH (키 인증) | 비밀번호 인증 off |
+| 80 | nginx → 301 https | |
+| 443 | nginx | 모든 서비스의 유일한 입구 |
+| 3306, 8080, 8090, 8081, 18080, 9090, 3000 | **닫음** | 내부망·nginx 뒤에서만 |
+
+### 메모리 예산 (16GB)
+
+| 구성 | 예상 |
+|---|---|
+| nginx | 0.05GB |
+| snt-app + coupon-api | 1~1.5GB |
+| tennis-mysql (스키마 2개) | 0.5GB |
+| Jenkins (-Xmx2g) | 2GB (빌드 중 3GB) |
+| Prometheus + Loki + Grafana + exporter | 1.5~2GB |
+| **합계** | **5~7GB**, 여유 9GB+ |
+
 ## 테스트
 
 세션 저장 기능 테스트:
