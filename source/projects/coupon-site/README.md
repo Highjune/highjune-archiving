@@ -34,8 +34,10 @@
 - [x] 도메인 구매 couponnote.kr (2026-10-15)
 - [x] Cloudflare 네임서버 이전 (2026-10-15, athena/nero.ns.cloudflare.com, A → 홈서버 IP, DNS only)
 - [ ] 홈서버 Cloudflare DDNS 갱신 스크립트 (cron 5분)
-- [ ] 마케팅파트너 가입 (개인·실명·gmail, SNS 주소 = https://couponnote.kr) — 가입 URL `partner.myrealtrip.com/welcome/marketing_partner`, 가입 직후 마파 오픈채팅방 입장(월별 코드 소스)
-- [ ] 마이링크 발급: 메인, 쿠폰팩 프로모션, 투어 카테고리, 숙소, 항공 (t_scope 7일)
+- [x] 마케팅파트너 가입 (2026-10-16, 개인 gmail 계정. 어필리에이트 메뉴 활성, 신분증·계좌 서류 유효, 정산 계좌 등록 → 운영팀 확인 대기) — 가입 URL `partner.myrealtrip.com/welcome/marketing_partner`
+- [ ] 마파 오픈채팅방 입장(월별 코드 소스) + 국내숙소팀 특가 공지 채널 상시 확인
+- [x] 마이링크 발급 1차 (2026-10-16): 홈(상시 코드 3개 공용)·휘닉스파크·뉴시즈 해운대. **발급은 사용자가 파트너페이지 UI에서 직접**(API 직접 호출 금지). 규칙: 랜딩 URL 1개 = 마이링크 1개, 받은 주소는 `curl -sI`로 301 대상(`mylink_id`, `t_scope=604800`) 확인 후 `coupons.target_url`에, 원본은 `landing_url`에
+- [x] `coupons.landing_url`(원본 URL) 컬럼 추가 + 운영 ALTER, 특가 EVENT 행 2건(뉴시즈 ~10/20 노출 중, 휘닉스 10/27~29 자동 노출) (2026-10-16, 빌드 #5)
 - [x] Spring 뼈대 (2026-10-15): 엔티티·페이지·/go 리다이렉트·캐시·Dockerfile·Jenkinsfile·schema.sql, 스모크 테스트 4건 통과
 - [x] tennis-mysql에 `coupon` 스키마·계정 생성 (2026-10-15)
 - [x] 홈서버 `/home/highjune/services/couponnote/` compose + .env (2026-10-15)
@@ -52,7 +54,8 @@
 - [ ] 핵심 글 1: "마이리얼트립 할인코드·쿠폰 총정리 (YYYY년 M월)" — 쿠폰팩 → 카드사 할인표 → 여행지별 쿠폰 → 항공 프로모션 → FAQ
 - [ ] 보조 글: 신규회원 혜택 / 취소·환불 규정 / 클룩·KKday 비교 / 항공권 카드할인
 - [ ] 네이버 서치어드바이저·구글 서치콘솔 등록, 사이트맵 제출
-- [ ] 파트너페이지 수익현황 주간 확인 루틴
+- [ ] 파트너페이지 수익현황 주간 확인 루틴 — EDW 파트너 테이블은 T-1 배치라 10/17 이후 partner_id 확인 가능
+- [ ] 운영 루틴: 오픈채팅 특가 공지 → 사용자가 프로모션 URL로 마이링크 발급 → EVENT 행 INSERT(starts/ends_at으로 자동 노출·숨김) → 판매 시작 1주 전 보조 글
 
 ### Phase 2. 동적 기능 (API 서버 + coupon DB)
 - [ ] `coupon` 논리 DB·계정 생성, API 서버 컨테이너를 `app-network`에 연결
