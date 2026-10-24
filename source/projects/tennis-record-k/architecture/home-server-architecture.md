@@ -110,6 +110,8 @@ sequenceDiagram
 
 ## 6-1. DB 원격 접속 (2026-10-24)
 
+sshd: 2026-10-24부터 인터넷 접속은 키 인증만(`PasswordAuthentication no`), 내부망 192.168.35.0/24는 `Match Address`로 비밀번호 허용. fail2ban sshd jail(5회/10분 → 1h 차단, 내부망 ignoreip) 가동.
+
 ufw는 2026-10-24에 22/80/443만 남기고 3306·8080·8090·10002·30000 ALLOW를 삭제했다 (docker 공개 포트는 ufw를 우회하므로 실제 방어는 바인딩 주소 + 모뎀 포워딩).
 
 MySQL 호스트 포트는 `127.0.0.1:3306` 바인딩(10/15). 외부에서는 **SSH 터널**(22 → 서버 내부 127.0.0.1:3306)로 접근하며, 2026-10-24 맥북 SSH 키를 `authorized_keys`에 등록해 키 인증 사용. 직접 공개 / SSH 터널 / 개인 VPN 세 구조 비교와 DataGrip 설정은 README "DB 원격 접속 아키텍처" 참고.
