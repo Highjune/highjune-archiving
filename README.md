@@ -26,7 +26,9 @@
 
 ## 홈서버 아키텍처 (2026-10-15 기준)
 
-Intel 미니PC(Ubuntu) 한 대에 nginx + Docker 컨테이너 3개. `https://snt.o-r.kr`로 외부 공개.
+Intel 미니PC(Ubuntu) 한 대에 nginx + Docker 컨테이너 4개(snt-app, couponnote-api, home-mysql, jenkins). `https://snt.o-r.kr`, `https://couponnote.kr` 외부 공개.
+
+**compose 3개로 분리 (2026-10-24)**: `services/mysql`(home-mysql, 공용 DB) · `services/snt-record`(앱만) · `services/couponnote`(api만). 앱 compose를 down/up 해도 DB는 내려가지 않는다. 볼륨 `snt-record_mysql-data`·네트워크 `snt-record_app-network`는 external로 공유. 호스트명: 테니스 앱 → `mysql_db`(서비스명), 쿠폰 API → `home-mysql`(컨테이너명).
 
 ```mermaid
 flowchart LR
@@ -37,7 +39,7 @@ flowchart LR
     subgraph PC["미니PC 192.168.35.122"]
         N["nginx :80/:443<br/>(호스트)"]
         A["snt-app :8090<br/>(docker)"]
-        D["tennis-mysql :3306<br/>(docker)"]
+        D["home-mysql :3306<br/>(docker, 별도 compose)"]
         J["jenkins :18080<br/>(docker)"]
         N --> A --> D
     end

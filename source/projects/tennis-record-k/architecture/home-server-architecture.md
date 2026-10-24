@@ -108,6 +108,21 @@ sequenceDiagram
 | 4 | 죽은 포워딩 규칙 8080 | 낮음 | 삭제 |
 | 5 | nginx 설정·인증서 갱신 방식이 문서화 안 됨 | 낮음 | `/etc/nginx` 와 certbot 타이머 확인 후 기록 |
 
+## 6-0. MySQL compose 분리 (2026-10-24)
+
+`tennis-mysql`이 테니스 compose 안에 있어 테니스 배포(`compose down`) 때마다 쿠폰 DB까지 내려가던 문제를 해소.
+
+| 디렉토리 | 서비스 | 컨테이너 | 비고 |
+|---|---|---|---|
+| `/home/highjune/services/mysql` | `mysql_db` | **home-mysql** | 공용 MySQL. 비밀번호는 `.env`. 볼륨 `snt-record_mysql-data`(external, 기존 데이터 그대로) |
+| `/home/highjune/services/snt-record` | `app` | snt-app | mysql 제거, 네트워크 external |
+| `/home/highjune/services/couponnote` | `api` | couponnote-api | `DB_HOST=home-mysql`로 변경 |
+
+- 네트워크 `snt-record_app-network`는 이름 유지, 세 compose 모두 external 참조
+- 테니스 앱은 `jdbc:mysql://mysql_db:3306`(서비스명)으로 접속하므로 코드 변경 없음
+- 교체 순단 약 5초(18:24:00→05). 사전 덤프 `~/backup/mysql-all-20261024-1823.sql`, compose 백업 `*.bak-20261024-1823`
+- 검증: 행 수 동일(824/61/622/5/34), 테니스 `compose down/up` 시 home-mysql 영향 없음 확인
+
 ## 6-1. DB 원격 접속 (2026-10-24)
 
 sshd: 2026-10-24부터 인터넷 접속은 키 인증만(`PasswordAuthentication no`), 내부망 192.168.35.0/24는 `Match Address`로 비밀번호 허용. fail2ban sshd jail(5회/10분 → 1h 차단, 내부망 ignoreip) 가동.
