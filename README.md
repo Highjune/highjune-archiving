@@ -23,6 +23,8 @@
 - `source/projects/tennis-record-k/architecture/home-server-architecture.md` - 홈서버 아키텍처 상세 (포트 실측, 배포 파이프라인, 리스크)
 - `source/projects/tennis-record-k/architecture/nginx-architecture.md` - nginx 설정 파일 읽기 순서, server 블록, certbot, 쿠폰 사이트 추가 시 구조
 - `source/projects/coupon-site/README.md` - 쿠폰 어필리에이트 사이트 기획·TODO
+- [tennis-record-k README](https://github.com/Highjune/tennis-record-k) - 테니스 앱 관점 운영 아키텍처(compose 분리·배포·귀뚜라미/SNT 클럽 분리·ELO 즉시 반영)와 도메인 설계
+- `sessions/tennis-record-k/` - 테니스·홈서버 작업 세션 기록
 
 ## 홈서버 아키텍처 (2026-10-15 기준)
 
