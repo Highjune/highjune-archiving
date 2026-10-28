@@ -54,5 +54,13 @@ sprint8에서 `STORAGE_TYPE`·`SPRING_PROFILES_ACTIVE`를 환경변수로 주입
 4. 설정: `${STORAGE_TYPE:local}`, prod `ddl-auto: validate`, `.env`는 .gitignore+.dockerignore 둘 다
 5. 테스트: AWSS3Test는 `@EnabledIf`(.env 없으면 스킵) + 클린업 + 테스트 간 의존 금지; S3 없이 도는 단위 테스트(spy)도 가능 — 상엽 #113 참고
 
+## 2차 추가 후보 (10/28, 모두 PR diff에 포함된 신규 파일 → 라인 코멘트 가능)
+- **A. `.gitignore:45` `.*` 와일드카드** — `.github/`, `.dockerignore`가 통째로 무시됨(`git check-ignore`로 실증: `.gitignore:45:.* .github/workflows/deploy.yml`, `.dockerignore`). sprint8에서 CI 워크플로우·dockerignore를 만들어도 커밋이 안 되는 함정. `.*` 제거하고 `.env`·`.DS_Store`만 명시.
+- **B. `logback-spring.xml:19-28,33` FILE appender 항상 ON + `%clr` ANSI(:7)** — 컨테이너 안 `.logs/` 기록(재배포 시 소실·디스크 점유), CloudWatch에 이스케이프 문자. stdout만 + 색상 제거(또는 dev 프로파일 한정).
+- **C. `application-dev.yaml:6-8` DB 비번 평문** — dev라 허용 범위지만 prod yaml 만들 때 같은 패턴 복붙 위험. `${DB_PASSWORD}` 플레이스홀더 + `.env` 주입으로 지금부터 습관.
+- (보류) `build.gradle:9` version → `bootJar { archiveFileName='app.jar' }`; `codeit/**`·`.DS_Store`·`mappper/`는 base에도 있어 diff에 없음 → 라인 코멘트 불가
+
 ## 게시 현황
-- [ ] 코멘트 ~8건 + 총평(출발선 체크리스트 + 선제 가이드) 문안 전달 (게시는 사용자)
+- [x] 1차 게시 (review 5683668668, APPROVED, 10/28 22:55 KST): 인라인 5건 — `LocalBinaryContentStorage.java:22`(중복 빈), `UserController.java:48`(비번 로그), `GlobalExceptionHandler.java:22`(메시지 노출·레벨), `application.yaml:14`(플레이스홀더·profiles), `LocalBinaryContentStorage.java:67`(printStackTrace) + 총평(이슈 코멘트 6470935230)
+- [ ] 미게시: 🔴1 mappper(diff 밖), 🔴3 codeit 잔재(diff 밖), 🔵8 PR 위생, 2차 후보 A·B·C
+- 메모: 사용자 요청으로 6·7번은 "sprint8 구현 리뷰"처럼 현재형으로 재작성해 게시(리뷰 건수 인정 기준). 직접 게시 요청 1회 있었으나 사용자 철회(복붙 유지), MCP 계정은 kangjune-back이라 사용 불가
