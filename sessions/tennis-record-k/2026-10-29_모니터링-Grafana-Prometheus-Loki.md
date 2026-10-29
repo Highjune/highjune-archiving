@@ -18,7 +18,7 @@
 | 로그 로테이션 | 앱 compose 2개 `json-file 10m × 3`, 컨테이너 재생성 |
 | 모니터링 compose | `services/monitoring`: prometheus v3.4.1 · loki 3.5.0 · alloy v1.9.0 · grafana 12.0.0 · node-exporter v1.9.1 · cadvisor v0.52.1. Prometheus만 app-network에 추가 참여. Grafana `192.168.35.122:3000`, admin `highjune`, 비밀번호 `.env`(600) |
 | 대시보드 | 직접 작성 `홈서버 앱 개요` (app 드롭다운, 19패널) + 커뮤니티 4701/1860/14282 파일 프로비저닝 |
-| 검증 | 타깃 5개 UP(tennis는 배포 후), Grafana 경유 PromQL·LogQL 조회 OK, Loki `app` 라벨 5종, 메모리 합계 ≈ 420MB |
+| 검증 | 타깃 5개 UP(tennis는 배포 후), Loki `app` 라벨 6종(highnance 포함), Grafana 경유 PromQL·LogQL 조회 OK, Loki `app` 라벨 5종, 메모리 합계 ≈ 420MB |
 | 문서 | archiving README(구성도·포트 표·모니터링 단락), 아키텍처 §6-3, `infra/monitoring/README.md`, 테니스 README 한 줄(PR 포함) |
 
 ## 3. 삽질·발견
@@ -37,8 +37,22 @@
 
 - [x] PR #24 머지 → Prometheus `tennis` 타깃 UP, `application=tennis` JVM 지표 수집 확인 (10/29 20:44)
 - [ ] 공유기 DHCP 고정 할당 192.168.35.122 (grafana 바인딩이 IP에 묶임) — 사용자가 집에서 진행 예정
-- 밖에서 보기: `ssh -N -L 3000:192.168.35.122:3000 snt` 후 `http://localhost:3000` (3000이 점유돼 있으면 `-L 3001:…`)
+- 밖에서 보기: 맥 터미널 `highjune-tunnel` → `http://localhost:3000` (아래 §5 참고)
+- [ ] 테니스 `8090:8090`·Jenkins `18080`/`50000` `0.0.0.0` 바인딩을 `127.0.0.1:`로 잠글지 결정 (LAN 기기의 nginx 우회·Jenkins 직접 접근 차단. 잠그면 집에서도 터널로만). Grafana는 LAN 유지 권장
 - [ ] 알림: Grafana alerting(앱 DOWN, 5xx, 디스크) → 메일 또는 카카오 나에게 보내기
 - [ ] 앱 커스텀 지표: 쿠폰노트 `/go` 클릭 카운터, 테니스 경기 입력 카운터
 - [ ] 쿠폰노트 PR: `management.metrics.tags.application=couponnote`, http 히스토그램
 - [ ] 테니스 yml DB 비밀번호 → 환경변수
+
+## 5. 저녁 후속 (머지 이후, 회사에서)
+
+- **PR #24 머지·배포**: release merge 커밋, main ff. Jenkins pollSCM → 20:44 `snt-app` 재생성 → Prometheus `tennis` UP, `jvm_memory_used_bytes{application="tennis"}` 수집.
+- **Alloy level 라벨 2차 수정**: 테니스(Boot 3.4.5)는 평탄 `{"log.level":…}`라 중첩용 JMESPath에 안 잡힘 → `log.level || "log.level"`. 중간에 `stage.template`으로 합쳤다가 비JSON 줄에 `level="<no value>"`가 붙는 걸 보고 `||`로 교체(null은 라벨 안 붙음). 하이낸스 파이썬 로그(`2026-10-29 21:20:12,670 INFO app.poller: …`)는 `stage.regex`로 level 추출. 확인: tennis=INFO/ERROR, couponnote=WARN, highnance=INFO.
+- **highnance-alert 편입**: Alloy relabel `highnance-alert → app=highnance`(전엔 infra), 대시보드 `app` 변수를 query(`up` 기반)에서 custom `tennis,couponnote,highnance`로 변경. highnance는 지표가 없어 로그 2패널만 데이터. 서버 파일 + archiving `infra/monitoring/` 미러 동일.
+- **Grafana 비밀번호**: 사용자가 기억하기 쉬운 값으로 변경 요청 → `docker exec grafana grafana cli admin reset-admin-password` + `.env` 동기화(600). env 값은 최초 기동 때만 읽히므로 env만 바꾸면 안 바뀜. 값은 문서에 없음.
+- **SSH 터널 정리** (맥 로컬 설정, 레포 밖):
+  - `~/.ssh/config`: `Host snt highjune`(동일 블록, 별칭 2개) + `Host highjune-tunnel`(LocalForward 3000→192.168.35.122:3000, 18080→localhost:18080, 8090→localhost:8090, 3306→localhost:3306, ServerAliveInterval 30, ExitOnForwardFailure yes). 백업 `config.bak-20261029`.
+  - `~/.zshrc`: 함수 `highjune-tunnel`(열고 포트 목록·끊는 법 echo, 이미 열려 있으면 pid만 출력) / `highjune-tunnel-stop` / `highjune-tunnel-status`.
+  - 회사망·회사 VPN 상태에서 22만으로 Grafana 302, Jenkins 403(로그인 전), 테니스 302, MySQL 3306 open 확인.
+- **설명한 것**: ssh 키 위치(`~/.ssh/id_ed25519_highjune`, 서버 authorized_keys 지문 일치), `-N/-f/-L` 뜻, "localhost:3000이 보이는 이유", 바인딩 주소 `0.0.0.0` vs `192.168.35.122` vs `127.0.0.1` 차이. 현재 쿠폰노트·MySQL만 127.0.0.1, 테니스 8090·Jenkins 18080은 0.0.0.0, Grafana는 LAN IP.
+- 사소: 앱 재배포 시 Alloy가 옛 컨테이너 ID로 "No such container" 10초쯤 → 자가 정리. Loki "negative structured metadata bytes" 로그는 노이즈. 이전 템플릿 기간의 `level="<no value>"` 스트림은 30일 후 소멸.

@@ -6,7 +6,7 @@
 docker-compose.yml                 prometheus · loki · alloy · grafana · node-exporter · cadvisor
 prometheus/prometheus.yml          수집 대상 (snt-app:8090, couponnote-api:8081, node, cadvisor)
 loki/loki-config.yml               단일 프로세스, 로컬 디스크, 30일
-alloy/config.alloy                 docker 로그 → app/level 라벨 → Loki
+alloy/config.alloy                 docker 로그 → app(snt-app→tennis, couponnote-api→couponnote, highnance-alert→highnance, …)/level(ECS JSON 중첩·평탄, 파이썬 logging) 라벨 → Loki
 grafana/provisioning/              데이터소스(uid prometheus, loki) · 대시보드 폴더 "홈서버"
 grafana/dashboards/*.json          home-apps-overview(직접 작성) + community-4701/1860/14282 (서버에서 내려받아 치환, 레포엔 없음)
 .env.example                       GF_SECURITY_ADMIN_PASSWORD — 실제 .env는 서버에만 (600)

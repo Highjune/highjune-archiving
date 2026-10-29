@@ -95,7 +95,7 @@ sequenceDiagram
 | `/home/highjune/services/jenkins/` | Dockerfile, docker-compose.yml, run_docker_compose.sh |
 | `/etc/nginx/sites-enabled/snt.o-r.kr` | server 블록 1개. 443: `proxy_pass http://localhost:8090` + WebSocket 헤더. 80: `301 → https`. 인증서는 certbot 관리(`/etc/letsencrypt/live/snt.o-r.kr/`), `certbot.timer`로 매일 자동 갱신 확인됨 (2026-10-15 실측). `server_name`의 옛 WAN IP `192.168.75.66`은 2026-10-15 제거(백업 `.bak-20261015`) |
 | `/home/highjune/services/jenkins/docker-compose.yml` | 2026-10-15 `JAVA_OPTS=-Xmx1g -Xms256m` 추가. 메모리 4.84GB → 0.44GB. 백업 `docker-compose.yml.bak-20261015` |
-| 맥북 `~/.ssh/config` | `Host snt` 별칭 (키 `id_ed25519_highjune`). `ssh snt`로 접속. 비밀번호 인증은 아직 켜져 있음 |
+| 맥북 `~/.ssh/config` | `Host snt highjune` 별칭 (키 `id_ed25519_highjune`). `ssh snt` 또는 `ssh highjune`로 접속. 비밀번호 인증은 아직 켜져 있음. 터널 묶음은 `Host highjune-tunnel`(LocalForward 3000·18080·8090·3306) + `~/.zshrc` 함수 `highjune-tunnel` / `-stop` / `-status` (2026-10-29) |
 | `/etc/sudoers.d/highjune` | `NOPASSWD:ALL` (2026-10-15). 원격 자동화용 |
 
 ## 6. 알려진 리스크 / 할 일
@@ -155,20 +155,20 @@ MySQL 호스트 포트는 `127.0.0.1:3306` 바인딩(10/15). 외부에서는 **S
 |---|---|---|---|
 | Prometheus v3.4 | 앱 `/actuator/prometheus` + node-exporter + cAdvisor를 15s pull, 30일 보관. 라벨 `app=tennis|couponnote|host|docker` | 지표 | 86 MB |
 | Loki 3.5 | 로그 저장소. 라벨(`app`, `container`, `level`)만 색인, 본문 압축. 30일 보관 | 로그 | 77 MB |
-| Alloy 1.9 | docker.sock으로 전 컨테이너 로그를 읽어 Loki로 push. 컨테이너명 → `app` 라벨, ECS JSON의 log level → `level` 라벨(Boot 4 중첩·Boot 3.4 평탄 키 모두 처리) | 없음 | 53 MB |
+| Alloy 1.9 | docker.sock으로 전 컨테이너 로그를 읽어 Loki로 push. 컨테이너명 → `app` 라벨, 로그 level → `level` 라벨(ECS JSON은 Boot 4 중첩·Boot 3.4 평탄 키를 JMESPath `\|\|`로, 파이썬 logging 포맷은 정규식으로). app 매핑: snt-app→tennis, couponnote-api→couponnote, highnance-alert→highnance, home-mysql→mysql, jenkins-server→jenkins, 나머지 infra | 없음 | 53 MB |
 | node-exporter / cAdvisor | 호스트·컨테이너별 CPU·메모리·디스크 | 없음 | 8 / 74 MB |
 | Grafana 12 | 대시보드·로그 탐색. 데이터소스·대시보드는 파일 프로비저닝 | 없음 | 116 MB |
 
 - **네트워크**: 모니터링 전용 `monitoring` 네트워크 + Prometheus만 `snt-record_app-network`에 추가로 붙어 `snt-app:8090`, `couponnote-api:8081`을 이름으로 수집. 앱·DB compose는 손대지 않음
-- **접근**: Grafana만 `192.168.35.122:3000`(LAN 주소)에 바인딩. 집 WiFi에서는 브라우저로 바로(회사 VPN 켜도 192.168.35.0/24는 로컬 경로라 열림), 밖에서는 `ssh -N -L 3000:192.168.35.122:3000 snt`(`~/.ssh/config`의 `snt` 별칭, 풀어 쓰면 `highjune@snt.o-r.kr`) 후 `localhost:3000`. 모뎀·공유기에 3000 포워딩 없음 → 인터넷에서 timeout. 서버 IP가 바뀌면 grafana 컨테이너가 못 뜨므로 공유기 DHCP 고정 할당 권장
-- **계정**: admin 계정 `highjune`, 비밀번호는 서버 `services/monitoring/.env`(600)에만. 회원가입 off
+- **접근**: Grafana만 `192.168.35.122:3000`(LAN 주소)에 바인딩. 집 WiFi에서는 브라우저로 바로(회사 VPN 켜도 192.168.35.0/24는 로컬 경로라 열림), 밖에서는 맥 터미널에서 `highjune-tunnel`(zshrc 함수 = `ssh -N -f highjune-tunnel`, Grafana 3000·Jenkins 18080·테니스 8090·MySQL 3306을 한 번에 포워딩하고 목록을 출력) 후 `localhost:3000`. 끊기는 `highjune-tunnel-stop`. 모뎀·공유기에 3000 포워딩 없음 → 인터넷에서 timeout. 서버 IP가 바뀌면 grafana 컨테이너가 못 뜨므로 공유기 DHCP 고정 할당 권장
+- **계정**: admin 계정 `highjune`, 비밀번호는 서버 `services/monitoring/.env`(600)에만(10/29 사용자가 `grafana cli admin reset-admin-password`로 변경, `.env`도 동기화. env 값은 최초 기동 때만 읽힘). 회원가입 off
 - **앱 쪽 변경**: 쿠폰노트는 이미 actuator + ECS JSON 로그. 테니스는 PR #24(actuator, `application=tennis` 태그, http 히스토그램, beta ECS 로그) → 10/29 20:44 release 머지·Jenkins 배포 후 Prometheus `tennis` 타깃 UP(머지 전엔 HTML 에러 페이지를 받아 DOWN)
 - **nginx**: 두 vhost에 `location ^~ /actuator/ { return 404; }` — 그 전까지 `couponnote.kr/actuator/prometheus`가 인터넷에 열려 있었음
 - **Docker 로그 로테이션**: 두 앱 compose에 `json-file max-size 10m × 3` (전엔 무제한). 컨테이너 재생성으로 각 5초 중단
-- **대시보드**(폴더 "홈서버"): `홈서버 앱 개요 (테니스 · 쿠폰노트)` — `app` 드롭다운, 상태/요청·초/5xx/응답시간/힙/CPU, 상태코드별 요청, 평균·p95, 엔드포인트 TOP10, GC, JVM·Hikari, Loki 레벨별 로그량·최근 로그(`search` 변수) + 커뮤니티 JVM(Micrometer) 4701 · Node Exporter Full 1860 · cAdvisor 14282 (`${DS_PROMETHEUS}` → uid `prometheus`로 치환해 파일 프로비저닝)
+- **대시보드**(폴더 "홈서버"): `홈서버 앱 개요 (테니스 · 쿠폰노트)` — `app` 드롭다운(custom: tennis / couponnote / highnance. highnance는 웹·JVM이 없어 로그 패널만 데이터), 상태/요청·초/5xx/응답시간/힙/CPU, 상태코드별 요청, 평균·p95, 엔드포인트 TOP10, GC, JVM·Hikari, Loki 레벨별 로그량·최근 로그(`search` 변수) + 커뮤니티 JVM(Micrometer) 4701 · Node Exporter Full 1860 · cAdvisor 14282 (`${DS_PROMETHEUS}` → uid `prometheus`로 치환해 파일 프로비저닝)
 - **검증(10/29)**: Prometheus 타깃 prometheus/couponnote/node/cadvisor UP, Grafana에서 PromQL 쿠폰노트 req/s·힙 91MB 조회, Loki `app` 라벨 5종(tennis, couponnote, mysql, jenkins, infra) 적재 확인. 합계 메모리 ≈ 420 MB. PR #24 배포 후 `tennis` UP, `jvm_memory_used_bytes{application="tennis"}` 수집, Loki `level` 라벨 tennis=INFO/ERROR·couponnote=WARN 확인
-- **삽질**: ① Spring Boot 버전마다 ECS JSON 키 모양이 다름 — 쿠폰노트(Boot 4)는 중첩 `{"log":{"level"}}`, 테니스(Boot 3.4)는 평탄 `{"log.level"}`. Alloy `stage.json`에서 JMESPath `log.level`은 중첩만, `"log.level"`(따옴표 식별자)은 평탄만 잡으므로 둘 다 뽑아 `stage.template`으로 합침 ② 기동 직후 Loki가 7일 넘은 옛 Jenkins 로그를 "timestamp too old"로 거부 — 초기 백필 1회성 ③ 서버 안에서 `curl https://couponnote.kr`은 헤어핀 NAT 때문에 응답 없음 → 외부 확인은 맥북에서 ④ 쿠폰노트는 micrometer `application` 태그가 없어 Prometheus static label로 보강(JVM 대시보드 변수용)
-- **다음**: 알림(Grafana alerting → 카카오 나에게 보내기/메일), `/go` 클릭·경기 입력 같은 앱 커스텀 카운터, Jenkins 지표, 쿠폰노트 PR로 `application` 태그·p95 히스토그램 추가
+- **삽질**: ① Spring Boot 버전마다 ECS JSON 키 모양이 다름 — 쿠폰노트(Boot 4)는 중첩 `{"log":{"level"}}`, 테니스(Boot 3.4)는 평탄 `{"log.level"}`. Alloy `stage.json`에서 JMESPath `log.level`은 중첩만, `"log.level"`(따옴표 식별자)은 평탄만 잡음 → `log.level || "log.level"`로 합침. 처음에 `stage.template`으로 합쳤더니 JSON이 아닌 줄(MySQL·Jenkins)에 `level="<no value>"` 라벨이 붙어 버려 `||`로 교체(null이면 extracted에 안 들어가 라벨도 안 붙음). 파이썬 로그는 `stage.regex`로 별도 추출 ② 기동 직후 Loki가 7일 넘은 옛 Jenkins 로그를 "timestamp too old"로 거부 — 초기 백필 1회성 ③ 서버 안에서 `curl https://couponnote.kr`은 헤어핀 NAT 때문에 응답 없음 → 외부 확인은 맥북에서 ④ 쿠폰노트는 micrometer `application` 태그가 없어 Prometheus static label로 보강(JVM 대시보드 변수용)
+- **다음**: 테니스 `8090:8090`·Jenkins `18080`이 `0.0.0.0`에 떠 있어 LAN에서 nginx 우회 가능 → 쿠폰노트처럼 `127.0.0.1:` 바인딩으로 통일할지 결정(Grafana는 폰 접속 편의로 LAN 유지 권장), 알림(Grafana alerting → 카카오 나에게 보내기/메일), `/go` 클릭·경기 입력 같은 앱 커스텀 카운터, Jenkins 지표, 쿠폰노트 PR로 `application` 태그·p95 히스토그램 추가
 
 ## 6-4. highnance-alert: 아파트 실거래 알림 (2026-10-29)
 
@@ -181,7 +181,7 @@ MySQL 호스트 포트는 `127.0.0.1:3306` 바인딩(10/15). 외부에서는 **S
 | 네트워크 | `snt-record_app-network` external. DB 호스트명 `home-mysql` |
 | DB | home-mysql 스키마 `highnance`(재테크 공용), 계정 `highnance@%`(highnance.* 전체 권한). 테이블 `apt_trade`·`apt_poll_run`·`apt_notification` |
 | 동작 | 15분 루프. 공공데이터 API로 당월+전월 조회 → 돈암동 609-1 필터 → `deal_key`(sha1)로 신규/해제 감지 → 텔레그램 그룹(`오랑오순`). 첫 실행은 적재만 하고 시작 요약 1건 |
-| 로그 | stdout → json-file → Alloy `loki.source.docker` 가 자동 수집 (Grafana에서 `container=highnance-alert`) |
+| 로그 | stdout → json-file → Alloy `loki.source.docker` 가 자동 수집. Alloy relabel로 `app=highnance`, 파이썬 logging 포맷에서 `level` 라벨 추출(10/29 저녁). Grafana `홈서버 앱 개요` `app` 드롭다운에 highnance 추가(로그 패널만 데이터) |
 
 **배포 (Jenkins `highnance-alert-pipeline`, couponnote 와 동일 패턴)**: `release` 푸시 → pollSCM 2분 → `docker build --target test`(pytest) → `--target runtime` 빌드·DockerHub 푸시 → `services/highnance-alert` 에서 `compose pull && up -d`.
 

@@ -36,6 +36,12 @@ discovery.relabel "containers" {
     target_label  = "app"
   }
   rule {
+    source_labels = ["container"]
+    regex         = "highnance-alert"
+    replacement   = "highnance"
+    target_label  = "app"
+  }
+  rule {
     source_labels = ["app"]
     regex         = ""
     replacement   = "infra"
@@ -49,20 +55,20 @@ loki.source.docker "containers" {
   forward_to = [loki.process.app_logs.receiver]
 }
 
-// ECS JSON 로그에서 level 만 라벨로 뽑는다. JSON 이 아닌 줄은 그대로 통과.
-// Spring Boot 버전에 따라 ECS 키 모양이 다르다:
+// 로그 줄에서 level 만 라벨로 뽑는다. 못 뽑는 줄(MySQL, Jenkins 등)은 level 라벨 없이 통과.
+// Spring Boot 버전에 따라 ECS JSON 키 모양이 다르다:
 //   - Boot 4 (쿠폰노트): 중첩 {"log":{"level":"INFO"}}  -> JMESPath log.level
 //   - Boot 3.4 (테니스): 평탄 {"log.level":"INFO"}       -> JMESPath "log.level" (따옴표 식별자)
+//   JMESPath `||` 로 둘 중 먼저 있는 값을 쓴다. 둘 다 없으면 null -> extracted 에 안 들어감.
+// 하이낸스 알림(파이썬 logging): "2026-10-29 21:20:12,670 INFO app.poller: ..." -> 정규식으로 level.
 loki.process "app_logs" {
   stage.json {
     expressions = {
-      level_nested = "log.level",
-      level_flat   = "\"log.level\"",
+      level = "log.level || \"log.level\"",
     }
   }
-  stage.template {
-    source   = "level"
-    template = "{{ if .level_nested }}{{ .level_nested }}{{ else }}{{ .level_flat }}{{ end }}"
+  stage.regex {
+    expression = "^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2},\\d+ (?P<level>[A-Z]+) "
   }
   stage.labels {
     values = {

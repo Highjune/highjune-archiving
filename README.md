@@ -65,7 +65,7 @@ flowchart LR
 
 배포는 `release` 브랜치 푸시 한 가지 경로. 상세는 위 아키텍처 문서 참고.
 
-**모니터링 (2026-10-29)**: 테니스·쿠폰노트 두 앱을 Grafana 한 화면에서. 지표는 Prometheus(앱 `/actuator/prometheus` + node-exporter + cAdvisor, 15s, 30일), 로그는 Docker 컨테이너 로그 → Alloy → Loki(30일, `app`/`level` 라벨). 구성 파일은 [`infra/monitoring`](source/projects/tennis-record-k/infra/monitoring/), 설계·접근 경로는 아키텍처 문서 §6-3. 설계 그림: https://claude.ai/artifact/6YPwJmKub2kom7wN2beGqn
+**모니터링 (2026-10-29)**: 테니스·쿠폰노트 두 앱(+ 하이낸스 알림 로그)을 Grafana 한 화면에서. 밖에서는 맥의 `highjune-tunnel`(SSH 터널 묶음) 후 `localhost:3000`. 지표는 Prometheus(앱 `/actuator/prometheus` + node-exporter + cAdvisor, 15s, 30일), 로그는 Docker 컨테이너 로그 → Alloy → Loki(30일, `app`/`level` 라벨). 구성 파일은 [`infra/monitoring`](source/projects/tennis-record-k/infra/monitoring/), 설계·접근 경로는 아키텍처 문서 §6-3. 설계 그림: https://claude.ai/artifact/6YPwJmKub2kom7wN2beGqn
 
 ## DB 원격 접속 아키텍처 (2026-10-24 정리)
 
