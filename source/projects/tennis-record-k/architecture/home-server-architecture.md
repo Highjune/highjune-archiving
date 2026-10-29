@@ -180,7 +180,7 @@ MySQL 호스트 포트는 `127.0.0.1:3306` 바인딩(10/15). 외부에서는 **S
 | compose | `/home/highjune/services/highnance-alert/docker-compose.yml` + `.env`(600, 비밀값: 공공데이터 API 키·텔레그램 봇 토큰·DB 비밀번호) |
 | 네트워크 | `snt-record_app-network` external. DB 호스트명 `home-mysql` |
 | DB | home-mysql 스키마 `highnance`(재테크 공용), 계정 `highnance@%`(highnance.* 전체 권한). 테이블 `apt_trade`·`apt_poll_run`·`apt_notification` |
-| 동작 | 15분 루프. 공공데이터 API로 당월+전월 조회 → 돈암동 609-1 필터 → `deal_key`(sha1)로 신규/해제 감지 → 텔레그램 그룹(`오랑오순`). 첫 실행은 적재만 하고 시작 요약 1건 |
+| 동작 | 15분 루프. 공공데이터 API로 당월+전월 조회 → 돈암동 609-1 필터 → `deal_key`(sha1)로 신규/해제/등기 감지 → 텔레그램 그룹(`오랑오순`). 1시간마다 서울부동산정보광장 토지거래허가 처리 건도 적재·알림. 월요일 09:00 주간 요약 |
 | 로그 | stdout → json-file → Alloy `loki.source.docker` 가 자동 수집. Alloy relabel로 `app=highnance`, 파이썬 logging 포맷에서 `level` 라벨 추출(10/29 저녁). Grafana `홈서버 앱 개요` `app` 드롭다운에 highnance 추가(로그 패널만 데이터) |
 
 **배포 (Jenkins `highnance-alert-pipeline`, couponnote 와 동일 패턴)**: `release` 푸시 → pollSCM 2분 → `docker build --target test`(pytest) → `--target runtime` 빌드·DockerHub 푸시 → `services/highnance-alert` 에서 `compose pull && up -d`.
@@ -191,6 +191,7 @@ MySQL 호스트 포트는 `127.0.0.1:3306` 바인딩(10/15). 외부에서는 **S
 - **함정**: Jenkins 컨테이너는 호스트 docker 소켓을 쓰므로 `docker run -v $PWD:/src` 의 `$PWD`(`/var/jenkins_home/workspace/...`)가 호스트 경로로 해석돼 빈 디렉토리가 마운트된다. 테스트는 build 컨텍스트로 보내 Dockerfile 의 test 스테이지에서 돌린다 (빌드 #1 실패 원인).
 - 첫 배포 2026-10-29 21:20: 성북구 257건 조회, 대상 12건 적재(9월 11건·10월 1건, 해제 1건 포함), 시작 요약 텔레그램 전송 확인.
 - 2차 배포 21:38: 상세 메시지 포맷(평·평당가·직전 대비), 등기 완료 알림(`rgst_notified_at`), 주간 요약(월 09:00, `DIGEST_*`). 마이그레이션 `schema/002` 적용.
+- 3차 배포 23:30: 토지거래허가 추적(서울부동산정보광장 `getContractList.do` ajax, 1시간, `apt_land_permit`, `PERMIT_*`). 마이그레이션 `schema/003`. 첫 실행 돈암동 609-1 허가 21건 적재.
 
 ## 7. 예정: 쿠폰 어필리에이트 사이트
 
