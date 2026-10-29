@@ -153,9 +153,9 @@ MySQL 호스트 포트는 `127.0.0.1:3306` 바인딩(10/15). 외부에서는 **S
 
 | 구성 요소 | 역할 | 저장 | 메모리(실측) |
 |---|---|---|---|
-| Prometheus v3.4 | 앱 `/actuator/prometheus` + node-exporter + cAdvisor를 15s pull, 30일 보관. 라벨 `app=tennis|couponnote|host|docker` | 지표 | 86 MB |
+| Prometheus v3.4 | 앱 `/actuator/prometheus` + node-exporter + cAdvisor를 15s pull, 30일 보관. 라벨 `app=snt-app|couponnote|host|docker`(10/29 저녁 tennis→snt-app, 컨테이너명과 통일) | 지표 | 86 MB |
 | Loki 3.5 | 로그 저장소. 라벨(`app`, `container`, `level`)만 색인, 본문 압축. 30일 보관 | 로그 | 77 MB |
-| Alloy 1.9 | docker.sock으로 전 컨테이너 로그를 읽어 Loki로 push. 컨테이너명 → `app` 라벨, 로그 level → `level` 라벨(ECS JSON은 Boot 4 중첩·Boot 3.4 평탄 키를 JMESPath `\|\|`로, 파이썬 logging 포맷은 정규식으로). app 매핑: snt-app→tennis, couponnote-api→couponnote, highnance-alert→highnance, home-mysql→mysql, jenkins-server→jenkins, 나머지 infra | 없음 | 53 MB |
+| Alloy 1.9 | docker.sock으로 전 컨테이너 로그를 읽어 Loki로 push. 컨테이너명 → `app` 라벨, 로그 level → `level` 라벨(ECS JSON은 Boot 4 중첩·Boot 3.4 평탄 키를 JMESPath `\|\|`로, 파이썬 logging 포맷은 정규식으로). app 매핑: snt-app→snt-app, couponnote-api→couponnote, highnance-alert→highnance, home-mysql→mysql, jenkins-server→jenkins, 나머지 infra | 없음 | 53 MB |
 | node-exporter / cAdvisor | 호스트·컨테이너별 CPU·메모리·디스크 | 없음 | 8 / 74 MB |
 | Grafana 12 | 대시보드·로그 탐색. 데이터소스·대시보드는 파일 프로비저닝 | 없음 | 116 MB |
 
@@ -165,7 +165,7 @@ MySQL 호스트 포트는 `127.0.0.1:3306` 바인딩(10/15). 외부에서는 **S
 - **앱 쪽 변경**: 쿠폰노트는 이미 actuator + ECS JSON 로그. 테니스는 PR #24(actuator, `application=tennis` 태그, http 히스토그램, beta ECS 로그) → 10/29 20:44 release 머지·Jenkins 배포 후 Prometheus `tennis` 타깃 UP(머지 전엔 HTML 에러 페이지를 받아 DOWN)
 - **nginx**: 두 vhost에 `location ^~ /actuator/ { return 404; }` — 그 전까지 `couponnote.kr/actuator/prometheus`가 인터넷에 열려 있었음
 - **Docker 로그 로테이션**: 두 앱 compose에 `json-file max-size 10m × 3` (전엔 무제한). 컨테이너 재생성으로 각 5초 중단
-- **대시보드**(폴더 "홈서버"): `홈서버 앱 개요 (테니스 · 쿠폰노트)` — `app` 드롭다운(custom: tennis / couponnote / highnance. highnance는 웹·JVM이 없어 로그 패널만 데이터), 상태/요청·초/5xx/응답시간/힙/CPU, 상태코드별 요청, 평균·p95, 엔드포인트 TOP10, GC, JVM·Hikari, Loki 레벨별 로그량·최근 로그(`search` 변수) + 커뮤니티 JVM(Micrometer) 4701 · Node Exporter Full 1860 · cAdvisor 14282 (`${DS_PROMETHEUS}` → uid `prometheus`로 치환해 파일 프로비저닝)
+- **대시보드**(폴더 "홈서버"): `홈서버 앱 개요 (테니스 · 쿠폰노트)` — `app` 드롭다운(custom: snt-app / couponnote / highnance. highnance는 웹·JVM이 없어 로그 패널만 데이터), 상태/요청·초/5xx/응답시간/힙/CPU, 상태코드별 요청, 평균·p95, 엔드포인트 TOP10, GC, JVM·Hikari, Loki 레벨별 로그량·최근 로그(`search` 변수) + 커뮤니티 JVM(Micrometer) 4701 · Node Exporter Full 1860 · cAdvisor 14282 (`${DS_PROMETHEUS}` → uid `prometheus`로 치환해 파일 프로비저닝)
 - **검증(10/29)**: Prometheus 타깃 prometheus/couponnote/node/cadvisor UP, Grafana에서 PromQL 쿠폰노트 req/s·힙 91MB 조회, Loki `app` 라벨 5종(tennis, couponnote, mysql, jenkins, infra) 적재 확인. 합계 메모리 ≈ 420 MB. PR #24 배포 후 `tennis` UP, `jvm_memory_used_bytes{application="tennis"}` 수집, Loki `level` 라벨 tennis=INFO/ERROR·couponnote=WARN 확인
 - **삽질**: ① Spring Boot 버전마다 ECS JSON 키 모양이 다름 — 쿠폰노트(Boot 4)는 중첩 `{"log":{"level"}}`, 테니스(Boot 3.4)는 평탄 `{"log.level"}`. Alloy `stage.json`에서 JMESPath `log.level`은 중첩만, `"log.level"`(따옴표 식별자)은 평탄만 잡음 → `log.level || "log.level"`로 합침. 처음에 `stage.template`으로 합쳤더니 JSON이 아닌 줄(MySQL·Jenkins)에 `level="<no value>"` 라벨이 붙어 버려 `||`로 교체(null이면 extracted에 안 들어가 라벨도 안 붙음). 파이썬 로그는 `stage.regex`로 별도 추출 ② 기동 직후 Loki가 7일 넘은 옛 Jenkins 로그를 "timestamp too old"로 거부 — 초기 백필 1회성 ③ 서버 안에서 `curl https://couponnote.kr`은 헤어핀 NAT 때문에 응답 없음 → 외부 확인은 맥북에서 ④ 쿠폰노트는 micrometer `application` 태그가 없어 Prometheus static label로 보강(JVM 대시보드 변수용)
 - **다음**: 테니스 `8090:8090`·Jenkins `18080`이 `0.0.0.0`에 떠 있어 LAN에서 nginx 우회 가능 → 쿠폰노트처럼 `127.0.0.1:` 바인딩으로 통일할지 결정(Grafana는 폰 접속 편의로 LAN 유지 권장), 알림(Grafana alerting → 카카오 나에게 보내기/메일), `/go` 클릭·경기 입력 같은 앱 커스텀 카운터, Jenkins 지표, 쿠폰노트 PR로 `application` 태그·p95 히스토그램 추가

@@ -20,26 +20,26 @@
         "name": "app",
         "label": "앱",
         "type": "custom",
-        "query": "tennis,couponnote,highnance",
-        "definition": "tennis,couponnote,highnance",
+        "query": "snt-app,couponnote,highnance",
+        "definition": "snt-app,couponnote,highnance",
         "refresh": 1,
         "sort": 1,
         "includeAll": false,
         "multi": false,
         "current": {
-          "text": "couponnote",
-          "value": "couponnote"
+          "text": "snt-app",
+          "value": "snt-app"
         },
         "options": [
           {
-            "text": "tennis",
-            "value": "tennis",
-            "selected": false
+            "text": "snt-app",
+            "value": "snt-app",
+            "selected": true
           },
           {
             "text": "couponnote",
             "value": "couponnote",
-            "selected": true
+            "selected": false
           },
           {
             "text": "highnance",

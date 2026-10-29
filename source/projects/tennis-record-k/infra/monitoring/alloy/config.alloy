@@ -14,7 +14,7 @@ discovery.relabel "containers" {
   rule {
     source_labels = ["container"]
     regex         = "snt-app"
-    replacement   = "tennis"
+    replacement   = "snt-app"   // 컨테이너명 그대로 (2026-10-29 tennis→snt-app)
     target_label  = "app"
   }
   rule {

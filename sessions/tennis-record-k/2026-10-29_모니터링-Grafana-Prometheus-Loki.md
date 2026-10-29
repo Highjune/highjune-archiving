@@ -56,3 +56,5 @@
   - 회사망·회사 VPN 상태에서 22만으로 Grafana 302, Jenkins 403(로그인 전), 테니스 302, MySQL 3306 open 확인.
 - **설명한 것**: ssh 키 위치(`~/.ssh/id_ed25519_highjune`, 서버 authorized_keys 지문 일치), `-N/-f/-L` 뜻, "localhost:3000이 보이는 이유", 바인딩 주소 `0.0.0.0` vs `192.168.35.122` vs `127.0.0.1` 차이. 현재 쿠폰노트·MySQL만 127.0.0.1, 테니스 8090·Jenkins 18080은 0.0.0.0, Grafana는 LAN IP.
 - 사소: 앱 재배포 시 Alloy가 옛 컨테이너 ID로 "No such container" 10초쯤 → 자가 정리. Loki "negative structured metadata bytes" 로그는 노이즈. 이전 템플릿 기간의 `level="<no value>"` 스트림은 30일 후 소멸.
+- **app 라벨 `tennis` → `snt-app`** (사용자: 컨테이너명이 더 직관적): Prometheus job/label, Alloy relabel, 대시보드 `app` 변수(custom `snt-app,couponnote,highnance`) 변경 후 alloy·prometheus 재기동. 코드의 micrometer 태그 `application=tennis`(PR #24)는 그대로라 커뮤니티 JVM 대시보드에서는 여전히 `tennis`로 보임. 이전 `app=tennis` 지표·로그는 30일 보관 후 소멸.
+- **로그 보관 기간 정리**: Loki 30일(`retention_period: 720h`), Prometheus 30일. Docker 원본 파일은 앱 3개(snt-app, couponnote-api, highnance-alert)만 `10m × 3`, 나머지(mysql, jenkins, 모니터링 6개)는 daemon.json 없음 → 무제한. Alloy는 파일이 아니라 `docker.sock`(ro) 으로 Docker API `containers/{id}/logs?follow`를 구독.
