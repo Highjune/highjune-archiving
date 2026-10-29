@@ -1,0 +1,105 @@
+# 홈서버 모니터링 스택. 서버 경로: /home/highjune/services/monitoring
+# Grafana만 LAN 주소(192.168.35.122:3000)에 열고 나머지는 docker 내부망 전용.
+# 비밀값은 같은 폴더 .env (GF_SECURITY_ADMIN_PASSWORD) — 레포에 올리지 않음.
+services:
+  prometheus:
+    image: prom/prometheus:v3.4.1
+    container_name: prometheus
+    restart: always
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+      - --web.enable-lifecycle
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      - monitoring
+      - app-network          # snt-app / couponnote-api 를 컨테이너 이름으로 수집
+
+  loki:
+    image: grafana/loki:3.5.0
+    container_name: loki
+    restart: always
+    command: -config.file=/etc/loki/loki-config.yml
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki-data:/loki
+    networks:
+      - monitoring
+
+  alloy:
+    image: grafana/alloy:v1.9.0
+    container_name: alloy
+    restart: always
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro   # 컨테이너 로그 읽기
+      - alloy-data:/var/lib/alloy/data
+    networks:
+      - monitoring
+
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    container_name: node-exporter
+    restart: always
+    pid: host
+    command:
+      - --path.rootfs=/host
+    volumes:
+      - /:/host:ro,rslave
+    networks:
+      - monitoring
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.52.1
+    container_name: cadvisor
+    restart: always
+    privileged: true
+    devices:
+      - /dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+    networks:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana:12.0.0
+    container_name: grafana
+    restart: always
+    env_file: .env                                   # GF_SECURITY_ADMIN_PASSWORD
+    environment:
+      - GF_SECURITY_ADMIN_USER=highjune
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_ANALYTICS_REPORTING_ENABLED=false
+      - GF_SERVER_ROOT_URL=http://192.168.35.122:3000
+      - TZ=Asia/Seoul
+    ports:
+      - "192.168.35.122:3000:3000"                   # 집 내부망 전용. 밖에서는 SSH 터널
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - monitoring
+
+volumes:
+  prometheus-data:
+  loki-data:
+  alloy-data:
+  grafana-data:
+
+networks:
+  monitoring:
+  app-network:
+    external: true
+    name: snt-record_app-network

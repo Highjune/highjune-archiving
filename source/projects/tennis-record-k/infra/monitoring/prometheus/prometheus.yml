@@ -1,0 +1,33 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # 앱 지표: Spring Boot Actuator + Micrometer. app 라벨로 Grafana 드롭다운 전환
+  - job_name: tennis
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["snt-app:8090"]
+        labels: { app: tennis }
+
+  - job_name: couponnote
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["couponnote-api:8081"]
+        labels: { app: couponnote, application: couponnote }   # 쿠폰노트는 micrometer application 태그가 없어 여기서 보강 (JVM 대시보드 변수용)
+
+  # 호스트(미니PC) 자원
+  - job_name: node
+    static_configs:
+      - targets: ["node-exporter:9100"]
+        labels: { app: host }
+
+  # 컨테이너별 자원
+  - job_name: cadvisor
+    static_configs:
+      - targets: ["cadvisor:8080"]
+        labels: { app: docker }

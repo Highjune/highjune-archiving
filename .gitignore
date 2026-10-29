@@ -12,3 +12,6 @@ out/
 *.log
 
 # Session archives: 커밋 대상 (2026-10-15부터 세션도 아카이빙)
+
+# 홈서버 모니터링 비밀값 (서버에만)
+source/projects/tennis-record-k/infra/monitoring/.env

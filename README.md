@@ -28,7 +28,7 @@
 
 ## 홈서버 아키텍처 (2026-10-15 기준)
 
-Intel 미니PC(Ubuntu) 한 대에 nginx + Docker 컨테이너 4개(snt-app, couponnote-api, home-mysql, jenkins). `https://snt.o-r.kr`, `https://couponnote.kr` 외부 공개.
+Intel 미니PC(Ubuntu) 한 대에 nginx + Docker 컨테이너 4개(snt-app, couponnote-api, home-mysql, jenkins) + 모니터링 6개(prometheus, loki, alloy, grafana, node-exporter, cadvisor). `https://snt.o-r.kr`, `https://couponnote.kr` 외부 공개.
 
 **compose 3개로 분리 (2026-10-24)**: `services/mysql`(home-mysql, 공용 DB) · `services/snt-record`(앱만) · `services/couponnote`(api만). 앱 compose를 down/up 해도 DB는 내려가지 않는다. 볼륨 `snt-record_mysql-data`·네트워크 `snt-record_app-network`는 external로 공유. 호스트명: 테니스 앱 → `mysql_db`(서비스명), 쿠폰 API → `home-mysql`(컨테이너명).
 
@@ -44,6 +44,8 @@ flowchart LR
         D["home-mysql :3306<br/>(docker, 별도 compose)"]
         J["jenkins :18080<br/>(docker)"]
         N --> A --> D
+        P["prometheus / loki<br/>(docker, 내부망 전용)"] -.->|"지표 pull · 로그 tail"| A
+        G["grafana :3000<br/>(LAN 192.168.35.122만)"] --> P
     end
 
     GH["GitHub release"] -.->|"2분 pollSCM"| J
@@ -58,8 +60,12 @@ flowchart LR
 | 3306 | 닫힘 | 바인딩 127.0.0.1(10/15) + ufw 삭제(10/24) + **모뎀·공유기 포워딩 삭제(10/25)** 3중. 외부에서는 **SSH 터널**로 접근 (아래 "DB 원격 접속 아키텍처") |
 | 8080 / 8090 | 닫힘 | 앱 직접 노출 규칙. ufw(10/24)·모뎀 8080·공유기 8090 포워딩(10/25) 모두 삭제. 앱은 nginx 443 뒤에서만 |
 | 18080 | 닫힘 | Jenkins, 내부망 전용 |
+| 3000 | 닫힘 (LAN 전용) | Grafana. 미니PC LAN 주소에만 바인딩, 포워딩 없음. 밖에서는 SSH 터널 `-L 3000:192.168.35.122:3000` |
+| `/actuator/*` | nginx 404 | 두 앱의 지표·헬스는 docker 내부망 Prometheus만 수집 (2026-10-29) |
 
 배포는 `release` 브랜치 푸시 한 가지 경로. 상세는 위 아키텍처 문서 참고.
+
+**모니터링 (2026-10-29)**: 테니스·쿠폰노트 두 앱을 Grafana 한 화면에서. 지표는 Prometheus(앱 `/actuator/prometheus` + node-exporter + cAdvisor, 15s, 30일), 로그는 Docker 컨테이너 로그 → Alloy → Loki(30일, `app`/`level` 라벨). 구성 파일은 [`infra/monitoring`](source/projects/tennis-record-k/infra/monitoring/), 설계·접근 경로는 아키텍처 문서 §6-3. 설계 그림: https://claude.ai/artifact/6YPwJmKub2kom7wN2beGqn
 
 ## DB 원격 접속 아키텍처 (2026-10-24 정리)
 

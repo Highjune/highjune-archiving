@@ -1,0 +1,71 @@
+// Docker 컨테이너 로그 → Loki. 컨테이너 이름을 app 라벨로 바꿔 Grafana에서 앱별로 본다.
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+  rule {
+    source_labels = ["container"]
+    regex         = "snt-app"
+    replacement   = "tennis"
+    target_label  = "app"
+  }
+  rule {
+    source_labels = ["container"]
+    regex         = "couponnote-api"
+    replacement   = "couponnote"
+    target_label  = "app"
+  }
+  rule {
+    source_labels = ["container"]
+    regex         = "home-mysql"
+    replacement   = "mysql"
+    target_label  = "app"
+  }
+  rule {
+    source_labels = ["container"]
+    regex         = "jenkins-server"
+    replacement   = "jenkins"
+    target_label  = "app"
+  }
+  rule {
+    source_labels = ["app"]
+    regex         = ""
+    replacement   = "infra"
+    target_label  = "app"
+  }
+}
+
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.containers.output
+  forward_to = [loki.process.app_logs.receiver]
+}
+
+// ECS JSON 로그(두 앱 공통)에서 level 만 라벨로 뽑는다. JSON 이 아닌 줄은 그대로 통과.
+loki.process "app_logs" {
+  stage.json {
+    expressions = {
+      level = "log.level",   // ECS 중첩 필드 {"log":{"level":"INFO"}} (JMESPath)
+    }
+  }
+  stage.labels {
+    values = {
+      level = "",
+    }
+  }
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
