@@ -190,6 +190,7 @@ MySQL 호스트 포트는 `127.0.0.1:3306` 바인딩(10/15). 외부에서는 **S
 - Jenkins compose 에 `/home/highjune/services/highnance-alert:…:ro` 마운트 추가 (백업 `docker-compose.yml.bak-20261029`). Jenkins 컨테이너 재생성 1회.
 - **함정**: Jenkins 컨테이너는 호스트 docker 소켓을 쓰므로 `docker run -v $PWD:/src` 의 `$PWD`(`/var/jenkins_home/workspace/...`)가 호스트 경로로 해석돼 빈 디렉토리가 마운트된다. 테스트는 build 컨텍스트로 보내 Dockerfile 의 test 스테이지에서 돌린다 (빌드 #1 실패 원인).
 - 첫 배포 2026-10-29 21:20: 성북구 257건 조회, 대상 12건 적재(9월 11건·10월 1건, 해제 1건 포함), 시작 요약 텔레그램 전송 확인.
+- 2차 배포 21:38: 상세 메시지 포맷(평·평당가·직전 대비), 등기 완료 알림(`rgst_notified_at`), 주간 요약(월 09:00, `DIGEST_*`). 마이그레이션 `schema/002` 적용.
 
 ## 7. 예정: 쿠폰 어필리에이트 사이트
 
