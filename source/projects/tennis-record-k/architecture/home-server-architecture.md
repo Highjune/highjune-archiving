@@ -155,19 +155,19 @@ MySQL 호스트 포트는 `127.0.0.1:3306` 바인딩(10/15). 외부에서는 **S
 |---|---|---|---|
 | Prometheus v3.4 | 앱 `/actuator/prometheus` + node-exporter + cAdvisor를 15s pull, 30일 보관. 라벨 `app=tennis|couponnote|host|docker` | 지표 | 86 MB |
 | Loki 3.5 | 로그 저장소. 라벨(`app`, `container`, `level`)만 색인, 본문 압축. 30일 보관 | 로그 | 77 MB |
-| Alloy 1.9 | docker.sock으로 전 컨테이너 로그를 읽어 Loki로 push. 컨테이너명 → `app` 라벨, ECS JSON의 `log.level` → `level` 라벨 | 없음 | 53 MB |
+| Alloy 1.9 | docker.sock으로 전 컨테이너 로그를 읽어 Loki로 push. 컨테이너명 → `app` 라벨, ECS JSON의 log level → `level` 라벨(Boot 4 중첩·Boot 3.4 평탄 키 모두 처리) | 없음 | 53 MB |
 | node-exporter / cAdvisor | 호스트·컨테이너별 CPU·메모리·디스크 | 없음 | 8 / 74 MB |
 | Grafana 12 | 대시보드·로그 탐색. 데이터소스·대시보드는 파일 프로비저닝 | 없음 | 116 MB |
 
 - **네트워크**: 모니터링 전용 `monitoring` 네트워크 + Prometheus만 `snt-record_app-network`에 추가로 붙어 `snt-app:8090`, `couponnote-api:8081`을 이름으로 수집. 앱·DB compose는 손대지 않음
-- **접근**: Grafana만 `192.168.35.122:3000`(LAN 주소)에 바인딩. 집 WiFi에서는 브라우저로 바로(회사 VPN 켜도 192.168.35.0/24는 로컬 경로라 열림), 밖에서는 `ssh -L 3000:192.168.35.122:3000 highjune@snt.o-r.kr` 후 `localhost:3000`. 모뎀·공유기에 3000 포워딩 없음 → 인터넷에서 timeout. 서버 IP가 바뀌면 grafana 컨테이너가 못 뜨므로 공유기 DHCP 고정 할당 권장
+- **접근**: Grafana만 `192.168.35.122:3000`(LAN 주소)에 바인딩. 집 WiFi에서는 브라우저로 바로(회사 VPN 켜도 192.168.35.0/24는 로컬 경로라 열림), 밖에서는 `ssh -N -L 3000:192.168.35.122:3000 snt`(`~/.ssh/config`의 `snt` 별칭, 풀어 쓰면 `highjune@snt.o-r.kr`) 후 `localhost:3000`. 모뎀·공유기에 3000 포워딩 없음 → 인터넷에서 timeout. 서버 IP가 바뀌면 grafana 컨테이너가 못 뜨므로 공유기 DHCP 고정 할당 권장
 - **계정**: admin 계정 `highjune`, 비밀번호는 서버 `services/monitoring/.env`(600)에만. 회원가입 off
-- **앱 쪽 변경**: 쿠폰노트는 이미 actuator + ECS JSON 로그. 테니스는 PR #24(actuator, `application=tennis` 태그, http 히스토그램, beta ECS 로그) → 머지·배포 전까지 Prometheus `tennis` 타깃은 DOWN(HTML 에러 페이지를 받음)
+- **앱 쪽 변경**: 쿠폰노트는 이미 actuator + ECS JSON 로그. 테니스는 PR #24(actuator, `application=tennis` 태그, http 히스토그램, beta ECS 로그) → 10/29 20:44 release 머지·Jenkins 배포 후 Prometheus `tennis` 타깃 UP(머지 전엔 HTML 에러 페이지를 받아 DOWN)
 - **nginx**: 두 vhost에 `location ^~ /actuator/ { return 404; }` — 그 전까지 `couponnote.kr/actuator/prometheus`가 인터넷에 열려 있었음
 - **Docker 로그 로테이션**: 두 앱 compose에 `json-file max-size 10m × 3` (전엔 무제한). 컨테이너 재생성으로 각 5초 중단
 - **대시보드**(폴더 "홈서버"): `홈서버 앱 개요 (테니스 · 쿠폰노트)` — `app` 드롭다운, 상태/요청·초/5xx/응답시간/힙/CPU, 상태코드별 요청, 평균·p95, 엔드포인트 TOP10, GC, JVM·Hikari, Loki 레벨별 로그량·최근 로그(`search` 변수) + 커뮤니티 JVM(Micrometer) 4701 · Node Exporter Full 1860 · cAdvisor 14282 (`${DS_PROMETHEUS}` → uid `prometheus`로 치환해 파일 프로비저닝)
-- **검증(10/29)**: Prometheus 타깃 prometheus/couponnote/node/cadvisor UP, Grafana에서 PromQL 쿠폰노트 req/s·힙 91MB 조회, Loki `app` 라벨 5종(tennis, couponnote, mysql, jenkins, infra) 적재 확인. 합계 메모리 ≈ 420 MB
-- **삽질**: ① Alloy `stage.json`에서 ECS 중첩 필드는 `"log.level"`(따옴표 키)이 아니라 `log.level`(JMESPath 경로) ② 기동 직후 Loki가 7일 넘은 옛 Jenkins 로그를 "timestamp too old"로 거부 — 초기 백필 1회성 ③ 서버 안에서 `curl https://couponnote.kr`은 헤어핀 NAT 때문에 응답 없음 → 외부 확인은 맥북에서 ④ 쿠폰노트는 micrometer `application` 태그가 없어 Prometheus static label로 보강(JVM 대시보드 변수용)
+- **검증(10/29)**: Prometheus 타깃 prometheus/couponnote/node/cadvisor UP, Grafana에서 PromQL 쿠폰노트 req/s·힙 91MB 조회, Loki `app` 라벨 5종(tennis, couponnote, mysql, jenkins, infra) 적재 확인. 합계 메모리 ≈ 420 MB. PR #24 배포 후 `tennis` UP, `jvm_memory_used_bytes{application="tennis"}` 수집, Loki `level` 라벨 tennis=INFO/ERROR·couponnote=WARN 확인
+- **삽질**: ① Spring Boot 버전마다 ECS JSON 키 모양이 다름 — 쿠폰노트(Boot 4)는 중첩 `{"log":{"level"}}`, 테니스(Boot 3.4)는 평탄 `{"log.level"}`. Alloy `stage.json`에서 JMESPath `log.level`은 중첩만, `"log.level"`(따옴표 식별자)은 평탄만 잡으므로 둘 다 뽑아 `stage.template`으로 합침 ② 기동 직후 Loki가 7일 넘은 옛 Jenkins 로그를 "timestamp too old"로 거부 — 초기 백필 1회성 ③ 서버 안에서 `curl https://couponnote.kr`은 헤어핀 NAT 때문에 응답 없음 → 외부 확인은 맥북에서 ④ 쿠폰노트는 micrometer `application` 태그가 없어 Prometheus static label로 보강(JVM 대시보드 변수용)
 - **다음**: 알림(Grafana alerting → 카카오 나에게 보내기/메일), `/go` 클릭·경기 입력 같은 앱 커스텀 카운터, Jenkins 지표, 쿠폰노트 PR로 `application` 태그·p95 히스토그램 추가
 
 ## 7. 예정: 쿠폰 어필리에이트 사이트

@@ -49,12 +49,20 @@ loki.source.docker "containers" {
   forward_to = [loki.process.app_logs.receiver]
 }
 
-// ECS JSON 로그(두 앱 공통)에서 level 만 라벨로 뽑는다. JSON 이 아닌 줄은 그대로 통과.
+// ECS JSON 로그에서 level 만 라벨로 뽑는다. JSON 이 아닌 줄은 그대로 통과.
+// Spring Boot 버전에 따라 ECS 키 모양이 다르다:
+//   - Boot 4 (쿠폰노트): 중첩 {"log":{"level":"INFO"}}  -> JMESPath log.level
+//   - Boot 3.4 (테니스): 평탄 {"log.level":"INFO"}       -> JMESPath "log.level" (따옴표 식별자)
 loki.process "app_logs" {
   stage.json {
     expressions = {
-      level = "log.level",   // ECS 중첩 필드 {"log":{"level":"INFO"}} (JMESPath)
+      level_nested = "log.level",
+      level_flat   = "\"log.level\"",
     }
+  }
+  stage.template {
+    source   = "level"
+    template = "{{ if .level_nested }}{{ .level_nested }}{{ else }}{{ .level_flat }}{{ end }}"
   }
   stage.labels {
     values = {
