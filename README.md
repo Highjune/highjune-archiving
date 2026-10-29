@@ -28,9 +28,9 @@
 
 ## 홈서버 아키텍처 (2026-10-15 기준)
 
-Intel 미니PC(Ubuntu) 한 대에 nginx + Docker 컨테이너 4개(snt-app, couponnote-api, home-mysql, jenkins) + 모니터링 6개(prometheus, loki, alloy, grafana, node-exporter, cadvisor). `https://snt.o-r.kr`, `https://couponnote.kr` 외부 공개.
+Intel 미니PC(Ubuntu) 한 대에 nginx + Docker 컨테이너 5개(snt-app, couponnote-api, highnance-alert, home-mysql, jenkins) + 모니터링 6개(prometheus, loki, alloy, grafana, node-exporter, cadvisor). `https://snt.o-r.kr`, `https://couponnote.kr` 외부 공개.
 
-**compose 3개로 분리 (2026-10-24)**: `services/mysql`(home-mysql, 공용 DB) · `services/snt-record`(앱만) · `services/couponnote`(api만). 앱 compose를 down/up 해도 DB는 내려가지 않는다. 볼륨 `snt-record_mysql-data`·네트워크 `snt-record_app-network`는 external로 공유. 호스트명: 테니스 앱 → `mysql_db`(서비스명), 쿠폰 API → `home-mysql`(컨테이너명).
+**compose 3개로 분리 (2026-10-24)**: `services/mysql`(home-mysql, 공용 DB) · `services/snt-record`(앱만) · `services/couponnote`(api만) · `services/highnance-alert`(실거래 알림 폴러, 2026-10-29). 앱 compose를 down/up 해도 DB는 내려가지 않는다. 볼륨 `snt-record_mysql-data`·네트워크 `snt-record_app-network`는 external로 공유. 호스트명: 테니스 앱 → `mysql_db`(서비스명), 쿠폰 API → `home-mysql`(컨테이너명).
 
 ```mermaid
 flowchart LR

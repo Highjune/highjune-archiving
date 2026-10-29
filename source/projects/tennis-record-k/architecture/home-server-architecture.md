@@ -1,6 +1,6 @@
 # 홈서버 아키텍처 (현재 상태)
 
-- 기준일: 2026-10-15 (외부 포트는 맥북에서 `nc`/`curl`로 실측)
+- 기준일: 2026-10-15 (외부 포트는 맥북에서 `nc`/`curl`로 실측), 2026-10-29 highnance-alert 추가(§6-4)
 - 원본 설정 문서: `tennis-record-k/CLAUDE.md` "개발 운영" / "네트워크 인프라" 섹션
 - 비밀번호·키 값은 이 문서에 적지 않는다. compose 파일과 Jenkins Credentials를 본다.
 
@@ -169,6 +169,27 @@ MySQL 호스트 포트는 `127.0.0.1:3306` 바인딩(10/15). 외부에서는 **S
 - **검증(10/29)**: Prometheus 타깃 prometheus/couponnote/node/cadvisor UP, Grafana에서 PromQL 쿠폰노트 req/s·힙 91MB 조회, Loki `app` 라벨 5종(tennis, couponnote, mysql, jenkins, infra) 적재 확인. 합계 메모리 ≈ 420 MB. PR #24 배포 후 `tennis` UP, `jvm_memory_used_bytes{application="tennis"}` 수집, Loki `level` 라벨 tennis=INFO/ERROR·couponnote=WARN 확인
 - **삽질**: ① Spring Boot 버전마다 ECS JSON 키 모양이 다름 — 쿠폰노트(Boot 4)는 중첩 `{"log":{"level"}}`, 테니스(Boot 3.4)는 평탄 `{"log.level"}`. Alloy `stage.json`에서 JMESPath `log.level`은 중첩만, `"log.level"`(따옴표 식별자)은 평탄만 잡으므로 둘 다 뽑아 `stage.template`으로 합침 ② 기동 직후 Loki가 7일 넘은 옛 Jenkins 로그를 "timestamp too old"로 거부 — 초기 백필 1회성 ③ 서버 안에서 `curl https://couponnote.kr`은 헤어핀 NAT 때문에 응답 없음 → 외부 확인은 맥북에서 ④ 쿠폰노트는 micrometer `application` 태그가 없어 Prometheus static label로 보강(JVM 대시보드 변수용)
 - **다음**: 알림(Grafana alerting → 카카오 나에게 보내기/메일), `/go` 클릭·경기 입력 같은 앱 커스텀 카운터, Jenkins 지표, 쿠폰노트 PR로 `application` 태그·p95 히스토그램 추가
+
+## 6-4. highnance-alert: 아파트 실거래 알림 (2026-10-29)
+
+성북구 돈암동 609-1(한신·한진) 매매 실거래가 공개되면 텔레그램 그룹으로 알리는 파이썬 폴러. 레포 `Highjune/highnance-alert`(private), 설계는 레포 `docs/superpowers/specs/2026-10-29-apt-trade-alert-design.md`.
+
+| 항목 | 값 |
+|---|---|
+| 컨테이너 | `highnance-alert` (`highjunea37/highnance-alert:latest`, python 3.12-slim). 외부 포트 없음, `restart: always` |
+| compose | `/home/highjune/services/highnance-alert/docker-compose.yml` + `.env`(600, 비밀값: 공공데이터 API 키·텔레그램 봇 토큰·DB 비밀번호) |
+| 네트워크 | `snt-record_app-network` external. DB 호스트명 `home-mysql` |
+| DB | home-mysql 스키마 `highnance`(재테크 공용), 계정 `highnance@%`(highnance.* 전체 권한). 테이블 `apt_trade`·`apt_poll_run`·`apt_notification` |
+| 동작 | 15분 루프. 공공데이터 API로 당월+전월 조회 → 돈암동 609-1 필터 → `deal_key`(sha1)로 신규/해제 감지 → 텔레그램 그룹(`오랑오순`). 첫 실행은 적재만 하고 시작 요약 1건 |
+| 로그 | stdout → json-file → Alloy `loki.source.docker` 가 자동 수집 (Grafana에서 `container=highnance-alert`) |
+
+**배포 (Jenkins `highnance-alert-pipeline`, couponnote 와 동일 패턴)**: `release` 푸시 → pollSCM 2분 → `docker build --target test`(pytest) → `--target runtime` 빌드·DockerHub 푸시 → `services/highnance-alert` 에서 `compose pull && up -d`.
+
+- private 레포라 Jenkins 가 SSH 로 받는다. 기존 `id_rsa_jenkins` 는 tennis-record-k 의 deploy key 라 GitHub 가 다른 레포 등록을 거부(`key is already in use`) → 서버에서 `~/.ssh/id_ed25519_jenkins_highnance` 새로 생성해 highnance-alert 에 read-only deploy key 로 등록.
+- Jenkins 자격증명 `highjune-github-ssh-highnance` 는 관리자 비밀번호 없이 `init.groovy.d` 스크립트(레포 `deploy/jenkins/create-highnance-cred.groovy`)로 생성. 스크립트는 실행 후 키 파일과 자기 자신을 삭제한다. 잡은 `deploy/jenkins/job-config.xml` 을 `jobs/highnance-alert-pipeline/config.xml` 로 넣고 재기동해 로드.
+- Jenkins compose 에 `/home/highjune/services/highnance-alert:…:ro` 마운트 추가 (백업 `docker-compose.yml.bak-20261029`). Jenkins 컨테이너 재생성 1회.
+- **함정**: Jenkins 컨테이너는 호스트 docker 소켓을 쓰므로 `docker run -v $PWD:/src` 의 `$PWD`(`/var/jenkins_home/workspace/...`)가 호스트 경로로 해석돼 빈 디렉토리가 마운트된다. 테스트는 build 컨텍스트로 보내 Dockerfile 의 test 스테이지에서 돌린다 (빌드 #1 실패 원인).
+- 첫 배포 2026-10-29 21:20: 성북구 257건 조회, 대상 12건 적재(9월 11건·10월 1건, 해제 1건 포함), 시작 요약 텔레그램 전송 확인.
 
 ## 7. 예정: 쿠폰 어필리에이트 사이트
 
