@@ -154,7 +154,7 @@ MySQL 호스트 포트는 `127.0.0.1:3306` 바인딩(10/15). 외부에서는 **S
 | 구성 요소 | 역할 | 저장 | 메모리(실측) |
 |---|---|---|---|
 | Prometheus v3.4 | 앱 `/actuator/prometheus` + node-exporter + cAdvisor를 15s pull, 30일 보관. 라벨 `app=snt-app|couponnote|host|docker`(10/29 저녁 tennis→snt-app, 컨테이너명과 통일) | 지표 | 86 MB |
-| Loki 3.5 | 로그 저장소. 라벨(`app`, `container`, `level`)만 색인, 본문 압축. 30일 보관 | 로그 | 77 MB |
+| Loki 3.5 | 로그 저장소. 라벨(`app`, `container`, `level`)만 색인, 본문 압축. 90일 보관(10/29 30→90일, 데이터는 docker 볼륨 `monitoring_loki-data` → 컨테이너 `/loki`) | 로그 | 77 MB |
 | Alloy 1.9 | docker.sock으로 전 컨테이너 로그를 읽어 Loki로 push. 컨테이너명 → `app` 라벨, 로그 level → `level` 라벨(ECS JSON은 Boot 4 중첩·Boot 3.4 평탄 키를 JMESPath `\|\|`로, 파이썬 logging 포맷은 정규식으로). app 매핑: snt-app→snt-app, couponnote-api→couponnote, highnance-alert→highnance, home-mysql→mysql, jenkins-server→jenkins, 나머지 infra | 없음 | 53 MB |
 | node-exporter / cAdvisor | 호스트·컨테이너별 CPU·메모리·디스크 | 없음 | 8 / 74 MB |
 | Grafana 12 | 대시보드·로그 탐색. 데이터소스·대시보드는 파일 프로비저닝 | 없음 | 116 MB |
